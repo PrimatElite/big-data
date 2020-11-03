@@ -12,3 +12,10 @@ Simple program-connector (not program, but useful class) for transfer data from 
   pip install -r requirements.txt
   ```
 
+* Look at the `connect.py` as an example of using the `Connector` class
+
+  You must pass some arguments to `connect.py` for the connector's work  
+  Use the following command for details
+  ```bash
+  python connect.py --help
+  ```
