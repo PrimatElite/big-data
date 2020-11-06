@@ -1,11 +1,10 @@
-import json
-
 from http import HTTPStatus
 from lxml.html import fromstring
 from pymongo import MongoClient
 from time import sleep
 from typing import Union
 
+from .insert_buffer import InsertBuffer
 from .request import Request
 
 
@@ -19,15 +18,24 @@ KINOPOISK_HEADERS = {
         'Keep-Alive': '300',
         'Connection': 'keep-alive',
         'Referer': 'http://www.kinopoisk.ru/',
-        'Cookie': 'i=UJB/wXq9g5QUeC3V4ga6xImWZhQzn+sybEgbPBXXl5hqijoTvHzFiPltVGANzLFa8ra9xDdWJvcHv+YHbirtSSMOkv8=; '
-                  'mda_exp_enabled=1; desktop_session_key=87241c4c1f0d3fd339e153a4cb126489a731659f67924414d3a7ad1b45b0d'
-                  '6dbfb24f35b72876f2aa5b3f393a932a29a90701a00ae7d33b22b309f34ba0bb6fd6705e70df019e49785624bceef01de24b'
-                  '9d04bda885ba3b072d73e22601941f4; desktop_session_key.sig=tfPfnoBSyqYBW_8L5P3aCq4lA8I; location=1; '
-                  'user-geo-region-id=2; user-geo-country-id=2; yandex_plus_metrika_cookie=true; '
-                  'sso_status=sso.passport.yandex.ru:synchronized_no_beacon; gdpr=0; _ym_uid=1604431828152939832; '
-                  '_ym_d=1604431828; mda=0; _ym_visorc_52332406=w; _ym_visorc_237742=w; _ym_isad=1; '
-                  '_ym_visorc_56177992=w; _ym_visorc_22663942=w; _ym_visorc_31713861=b; kpunk=1',
+        'Cookie': 'user-geo-region-id=2; user-geo-country-id=2; desktop_session_key=a879d130e3adf0339260b581e66d773df11'
+                  'd8e9d3c7ea1053a6a7b473c166afff28b4d6c3e80e91249baaa7f3c3e90ef898a714ba131694d595c6a4f7e8f6df19d46c31'
+                  'ce10d2837ff5ad61d138aefd65c01aa7acc1327ce6d0918deae0a3c71; '
+                  'desktop_session_key.sig=drC4D-uw685k9LLTsxPhIFVyLFY; '
+                  'i=Hn0YWarMxO/96XpUg9b7btBjrSjo+ItWSfeOXC4oUOtwp6TEcbOkk/ajoJbz1xD/0dPkdWRcJTTk3x1/kZ09uNlji8g=; '
+                  'mda_exp_enabled=1; sso_status=sso.passport.yandex.ru:blocked; yandex_plus_metrika_cookie=true; '
+                  '_ym_wasSynced=%7B%22time%22%3A1604668139580%2C%22params%22%3A%7B%22eu%22%3A0%7D%2C%22bkParams%22%3A%'
+                  '7B%7D%7D; gdpr=0; _ym_uid=1604668140171070080; _ym_d=1604668140; mda=0; _ym_isad=1; '
+                  '_ym_visorc_56177992=b; _ym_visorc_52332406=b; _ym_visorc_22663942=b; location=1',
     }
+
+
+BUFFER_SIZES = {
+    'films': 5,
+    'persons': 75,
+    'film_person': 100,
+    'reviews': 100
+}
 
 
 class Connector:
@@ -44,6 +52,7 @@ class Connector:
         self.kinopoisk_request = Request(KINOPOISK_HEADERS)
         self.api_request = Request({'X-API-KEY': self.api_key})
         self.db = None
+        self.buffers = {}
 
         self._check_fields()
 
@@ -75,6 +84,8 @@ class Connector:
             if collection in collections:
                 self.db.drop_collection(collection)
             self.db.create_collection(collection)
+            self.buffers[collection] = InsertBuffer(self.db.get_collection(collection), BUFFER_SIZES[collection],
+                                                    self._update_log)
 
     def _make_api_request(self, url, _depth=0):
         response = self.api_request.get(url)
@@ -141,63 +152,52 @@ class Connector:
             page += 1
 
     def _connect_film_reviews(self, film_id):
-        reviews = []
         review_ids = set()
         for review_id in self._get_review_id_from_kinopoisk(film_id):
             if review_id in review_ids:
                 continue
-            review_data = self._make_api_request(f"https://kinopoiskapiunofficial.tech/api/v1/reviews/details"
-                                                 f"?reviewId={review_id}")
+            review_data = self._make_api_request(f'https://kinopoiskapiunofficial.tech/api/v1/reviews/details'
+                                                 f'?reviewId={review_id}')
             review_data['filmId'] = film_id
-            reviews.append(review_data)
-            if len(reviews) > 0 and len(reviews) % 100 == 0:
-                self.db.reviews.insert_many(reviews)
-                reviews = []
+            self.buffers['reviews'].add(review_data)
             review_ids.add(review_id)
-        if len(reviews) > 0:
-            self.db.reviews.insert_many(reviews)
 
     def _connect_person(self, person_id):
-        person_data = self._make_api_request(f"https://kinopoiskapiunofficial.tech/api/v1/staff/{person_id}")
+        person_data = self._make_api_request(f'https://kinopoiskapiunofficial.tech/api/v1/staff/{person_id}')
         person_data.pop('films')
-        self.db.persons.insert_one(person_data)
+        self.buffers['persons'].add(person_data)
 
-    def _connect_film_persons(self, film_id, persons):
+    def _connect_film_persons(self, film_id, person_ids):
         film_persons = self._make_api_request(f'https://kinopoiskapiunofficial.tech/api/v1/staff?filmId={film_id}')
-        film_persons_ = []
-        film_person_ids = set()
         for film_person in film_persons:
-            if film_person['staffId'] in film_person_ids:
-                continue
-            if film_person['staffId'] not in persons:
+            if film_person['staffId'] not in person_ids:
                 self._connect_person(film_person['staffId'])
-                persons.add(film_person['staffId'])
+                person_ids.add(film_person['staffId'])
 
             film_person_data = {'filmId': film_id, 'personId': film_person['staffId']}
             film_person_data.update({field: film_person[field]
                                      for field in ['description', 'professionText', 'professionKey']})
-            film_persons_.append(film_person_data)
-            film_person_ids.add(film_person['staffId'])
-        self.db.film_person.insert_many(film_persons_)
+            self.buffers['film_person'].add(film_person_data)
 
     def _connect_film(self, film_id):
         film_data = self._make_api_request(f'https://kinopoiskapiunofficial.tech/api/v2.1/films/{film_id}'
                                            f'?append_to_response=BUDGET&append_to_response=RATING')
-        self.db.films.insert_one(film_data)
+        self.buffers['films'].add(film_data)
 
     def _update_log(self, log_message):
         if self.is_log:
             print(log_message)
 
     def connect(self, is_log: bool = False):
-        self._init_database()
         if is_log is not None and isinstance(is_log, bool):
             self.is_log = is_log
 
-        persons = set()
-        films = set()
+        self._init_database()
+
+        person_ids = set()
+        film_ids = set()
         for film_id in self._get_film_id_from_kinopoisk():
-            if film_id in films:
+            if film_id in film_ids:
                 continue
             self._update_log(f'filmId: {film_id}')
             self._connect_film(film_id)
@@ -206,6 +206,9 @@ class Connector:
             self._connect_film_reviews(film_id)
             self._update_log('reviews were connected')
 
-            self._connect_film_persons(film_id, persons)
+            self._connect_film_persons(film_id, person_ids)
             self._update_log('persons were connected')
-            films.add(film_id)
+            film_ids.add(film_id)
+
+        for buffer in self.buffers.values():
+            buffer.flush()
