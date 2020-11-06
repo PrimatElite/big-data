@@ -1,8 +1,6 @@
 from pymongo.collection import Collection
 from typing import Callable
 
-from time import time
-
 
 class InsertBuffer:
     def __init__(self, collection: Collection, buffer_size: int = 100, log_func: Callable = None):
@@ -13,9 +11,7 @@ class InsertBuffer:
 
     def flush(self):
         if len(self.buffer) > 0:
-            t = time()
             self.collection.insert_many(self.buffer)
-            print(time() - t)
             if isinstance(self.log_func, Callable):
                 self.log_func(f'flushed {len(self.buffer)} elements in collection {self.collection.name}')
             self.buffer = []
