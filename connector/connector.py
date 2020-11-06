@@ -29,13 +29,54 @@ KINOPOISK_HEADERS = {
                   '_ym_visorc_56177992=b; _ym_visorc_52332406=b; _ym_visorc_22663942=b; location=1',
     }
 
-
 BUFFER_SIZES = {
     'films': 5,
     'persons': 75,
     'film_person': 100,
     'reviews': 100
 }
+
+REVIEW_TYPES = {
+    'good': 'POSITIVE',
+    'bad': 'NEGATIVE',
+    'neutral': 'NEUTRAL'
+}
+
+MONTHS = {
+    'января': '01',
+    'февраля': '02',
+    'марта': '03',
+    'апреля': '04',
+    'мая': '05',
+    'июня': '06',
+    'июля': '07',
+    'августа': '08',
+    'сентября': '09',
+    'октября': '10',
+    'ноября': '11',
+    'декабря': '12'
+}
+
+
+def parse_date(date_time):
+    date, time_ = date_time.split(' | ')
+    day, month, year = date.split()
+    return f'{year}-{MONTHS[month]}-{day}T{time_}:00'
+
+
+def parse_review(review_obj):
+    review_data = {'reviewId': int(review_obj.attrib['data-id'])}
+    review_elem = review_obj.xpath(f".//div[@id='div_review_{review_data['reviewId']}']")[0]
+    review_data['reviewType'] = REVIEW_TYPES[review_elem.attrib['class'].split()[1]]
+    review_data['reviewDate'] = parse_date(str(review_elem.xpath(".//span[@class='date']/text()")[0]))
+    review_votes = review_elem.xpath(f".//ul[@class='useful']/li[@id='comment_num_vote_{review_data['reviewId']}']"
+                                     f"/text()")[0]
+    review_data['userPositiveRating'], review_data['userNegativeRating'] = list(map(int, review_votes.split(' / ')))
+    review_meta = review_elem.xpath(f".//div[@itemprop='author']/div")[0]
+    review_data['reviewAuthor'] = review_meta.xpath(f".//p[@class='profile_name']/a")[0].text or ''
+    review_data['reviewTitle'] = review_meta.xpath(f".//p[@class='sub_title']")[0].text or ''
+    # review_data['reviewDescription'] = ''.join(review_elem.xpath(f".//span[@itemprop='reviewBody']/text()"))
+    return review_data
 
 
 class Connector:
@@ -131,11 +172,11 @@ class Connector:
                 break
             page += 1
 
-    def _get_review_id_from_kinopoisk(self, film_id):
+    def _get_reviews_page_from_kinopoisk(self, film_id):
         page = 1
         while True:
             reviews_page = self._make_kinopoisk_request(f'https://www.kinopoisk.ru/film/{film_id}/reviews/ord/date'
-                                                        f'/status/all/perpage/25/page/{page}/')
+                                                        f'/status/all/perpage/200/page/{page}/')
 
             reviews = reviews_page.xpath("//div[@class='reviewItem userReview']/@data-id")
             if len(reviews) == 0:
@@ -143,24 +184,23 @@ class Connector:
                 break
 
             self._update_log(f'review page: {page}')
-            for review_data_id in reviews:
-                yield int(review_data_id)
+            yield reviews_page
 
-            last_page = reviews_page.xpath("//div[@class='navigator']/ul/li")[-1]
-            if 'class' not in last_page.attrib:
+            navigator_list = reviews_page.xpath("//div[@class='navigator']/ul/li")
+            if len(navigator_list) == 0 or 'class' not in navigator_list[-1].attrib:
                 break
             page += 1
 
     def _connect_film_reviews(self, film_id):
         review_ids = set()
-        for review_id in self._get_review_id_from_kinopoisk(film_id):
-            if review_id in review_ids:
-                continue
-            review_data = self._make_api_request(f'https://kinopoiskapiunofficial.tech/api/v1/reviews/details'
-                                                 f'?reviewId={review_id}')
-            review_data['filmId'] = film_id
-            self.buffers['reviews'].add(review_data)
-            review_ids.add(review_id)
+        for reviews_page in self._get_reviews_page_from_kinopoisk(film_id):
+            for review_obj in reviews_page.xpath("//div[@class='reviewItem userReview']"):
+                review_data = parse_review(review_obj)
+                if review_data['reviewId'] in review_ids:
+                    continue
+                review_data['filmId'] = film_id
+                self.buffers['reviews'].add(review_data)
+                review_ids.add(review_data['reviewId'])
 
     def _connect_person(self, person_id):
         person_data = self._make_api_request(f'https://kinopoiskapiunofficial.tech/api/v1/staff/{person_id}')
