@@ -158,7 +158,8 @@ class Connector:
     def _get_film_id_from_kinopoisk(self):
         page = 1
         while True:
-            films_page = self._make_kinopoisk_request(f'https://www.kinopoisk.ru/lists/navigator/?page={page}&tab=all')
+            films_page = self._make_kinopoisk_request(f'https://www.kinopoisk.ru/lists/navigator/'
+                                                      f'?page={page}&quick_filters=films&tab=all')
 
             pages_count = int(films_page.xpath("//a[@class='paginator__page-number']/text()")[-1])
             films_count = len(films_page.xpath("//a[@class='selection-film-item-meta__link']/@href"))
