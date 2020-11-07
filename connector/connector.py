@@ -31,7 +31,7 @@ KINOPOISK_HEADERS = {
 
 BUFFER_SIZES = {
     'films': 5,
-    'persons': 75,
+    'persons': 100,
     'film_person': 100,
     'reviews': 100
 }
@@ -80,8 +80,9 @@ def parse_review(review_obj):
 
 
 class Connector:
-    def __init__(self, api_key: str, username: str, password: str, database: str, host: str = 'localhost',
-                 port: Union[int, str] = 27017, authentication_database: str = 'admin'):
+    def __init__(self, api_key: str, database: str, username: Union[str, None] = None,
+                 password: Union[str, None] = None, host: str = 'localhost', port: Union[int, str] = 27017,
+                 authentication_database: Union[str, None] = None, sorting: Union[str, None] = None):
         self.api_key = api_key
         self.username = username
         self.password = password
@@ -89,6 +90,7 @@ class Connector:
         self.host = host
         self.port = port
         self.authentication_database = authentication_database
+        self.sorting = sorting
         self.is_log = False
         self.kinopoisk_request = Request(KINOPOISK_HEADERS)
         self.api_request = Request({'X-API-KEY': self.api_key})
@@ -100,12 +102,13 @@ class Connector:
     def _check_fields(self):
         field_types = {
             'api_key': [str],
-            'username': [str],
-            'password': [str],
+            'username': [str, type(None)],
+            'password': [str, type(None)],
             'database': [str],
             'host': [str],
             'port': [int, str],
-            'authentication_database': [str]
+            'authentication_database': [str, type(None)],
+            'sorting': [str, type(None)]
         }
         for field, types in field_types.items():
             value = getattr(self, field)
@@ -113,10 +116,16 @@ class Connector:
                 raise TypeError(f"Field '{field}' must have type{'s' if len(types) > 1 else ''} "
                                 f"{', '.join(map(lambda type_: type_.__name__, types[:-1]))}"
                                 f"{' or ' if len(types) > 1 else ''}{types[-1].__name__}, not {type(value).__name__}")
+        if self.username is not None and self.password is None:
+            raise TypeError(f"Field 'password' must have type str, not NoneType")
 
     def _init_database(self):
-        uri = f'mongodb://{self.username}:{self.password}@{self.host}:{self.port}/{self.database}' \
-              f'?authSource={self.authentication_database}'
+        uri = 'mongodb://'
+        if self.username is not None:
+            uri += f'{self.username}:{self.password}@'
+        uri += f'{self.host}:{self.port}/{self.database}'
+        if self.authentication_database is not None:
+            uri += f'?authSource={self.authentication_database}'
         client = MongoClient(uri)
         self.db = client.get_database()
 
@@ -135,7 +144,8 @@ class Connector:
         elif response.status_code == HTTPStatus.UNAUTHORIZED:
             raise ValueError('Wrong API key')
         elif response.status_code == HTTPStatus.NOT_FOUND:
-            raise ValueError(f"Can't find information by url '{url}'")
+            print(f"Can't find information by url {url}")
+            return None
         elif response.status_code == HTTPStatus.TOO_MANY_REQUESTS:
             if _depth == 0:
                 sleep(1)
@@ -152,14 +162,19 @@ class Connector:
             if 'captcha' in content:
                 raise Exception('Oh, captcha')
             return fromstring(content)
+        elif response.status_code == HTTPStatus.NOT_FOUND:
+            print(f'Page {url} not found')
+            return None
         else:
             raise Exception(f'Unknown error: {response.status_code}; {response.text}')
 
     def _get_film_id_from_kinopoisk(self):
         page = 1
+        request_url = 'https://www.kinopoisk.ru/lists/navigator/?page=%s&quick_filters=films&tab=all'
+        if self.sorting is not None:
+            request_url += f'&sort={self.sorting}'
         while True:
-            films_page = self._make_kinopoisk_request(f'https://www.kinopoisk.ru/lists/navigator/'
-                                                      f'?page={page}&quick_filters=films&tab=all')
+            films_page = self._make_kinopoisk_request(request_url % page)
 
             pages_count = int(films_page.xpath("//a[@class='paginator__page-number']/text()")[-1])
             films_count = len(films_page.xpath("//a[@class='selection-film-item-meta__link']/@href"))
@@ -178,6 +193,8 @@ class Connector:
         while True:
             reviews_page = self._make_kinopoisk_request(f'https://www.kinopoisk.ru/film/{film_id}/reviews/ord/date'
                                                         f'/status/all/perpage/200/page/{page}/')
+            if reviews_page is None:
+                break
 
             reviews = reviews_page.xpath("//div[@class='reviewItem userReview']/@data-id")
             if len(reviews) == 0:
@@ -202,6 +219,7 @@ class Connector:
                 review_data['filmId'] = film_id
                 self.buffers['reviews'].add(review_data)
                 review_ids.add(review_data['reviewId'])
+        self._update_log('reviews were connected')
 
     def _connect_person(self, person_id):
         person_data = self._make_api_request(f'https://kinopoiskapiunofficial.tech/api/v1/staff/{person_id}')
@@ -210,6 +228,8 @@ class Connector:
 
     def _connect_film_persons(self, film_id, person_ids):
         film_persons = self._make_api_request(f'https://kinopoiskapiunofficial.tech/api/v1/staff?filmId={film_id}')
+        if film_persons is None:
+            return
         for film_person in film_persons:
             if film_person['staffId'] not in person_ids:
                 self._connect_person(film_person['staffId'])
@@ -219,11 +239,13 @@ class Connector:
             film_person_data.update({field: film_person[field]
                                      for field in ['description', 'professionText', 'professionKey']})
             self.buffers['film_person'].add(film_person_data)
+        self._update_log('persons were connected')
 
     def _connect_film(self, film_id):
         film_data = self._make_api_request(f'https://kinopoiskapiunofficial.tech/api/v2.1/films/{film_id}'
                                            f'?append_to_response=BUDGET&append_to_response=RATING')
         self.buffers['films'].add(film_data)
+        self._update_log('film was connected')
 
     def _update_log(self, log_message):
         if self.is_log:
@@ -242,13 +264,10 @@ class Connector:
                 continue
             self._update_log(f'filmId: {film_id}')
             self._connect_film(film_id)
-            self._update_log('film was connected')
 
             self._connect_film_reviews(film_id)
-            self._update_log('reviews were connected')
 
             self._connect_film_persons(film_id, person_ids)
-            self._update_log('persons were connected')
             film_ids.add(film_id)
 
         for buffer in self.buffers.values():
