@@ -30,53 +30,25 @@ KINOPOISK_HEADERS = {
     }
 
 BUFFER_SIZES = {
-    'films': 5,
-    'persons': 100,
-    'film_person': 100,
-    'reviews': 100
+    'films': 10,
+    'film_person': 100
 }
 
-REVIEW_TYPES = {
-    'good': 'POSITIVE',
-    'bad': 'NEGATIVE',
-    'neutral': 'NEUTRAL'
-}
-
-MONTHS = {
-    'января': '01',
-    'февраля': '02',
-    'марта': '03',
-    'апреля': '04',
-    'мая': '05',
-    'июня': '06',
-    'июля': '07',
-    'августа': '08',
-    'сентября': '09',
-    'октября': '10',
-    'ноября': '11',
-    'декабря': '12'
+REVIEW_COUNTS = {
+    'all': ('reviewAllCount', int),
+    'pos': ('reviewPositiveCount', int),
+    'neg': ('reviewNegativeCount', int),
+    'neut': ('reviewNeutralCount', int),
+    'perc': ('reviewAllPositiveRatio', str)
 }
 
 
-def parse_date(date_time):
-    date, time_ = date_time.split(' | ')
-    day, month, year = date.split()
-    return f'{year}-{MONTHS[month]}-{day}T{time_}:00'
-
-
-def parse_review(review_obj):
-    review_data = {'reviewId': int(review_obj.attrib['data-id'])}
-    review_elem = review_obj.xpath(f".//div[@id='div_review_{review_data['reviewId']}']")[0]
-    review_data['reviewType'] = REVIEW_TYPES[review_elem.attrib['class'].split()[1]]
-    review_data['reviewDate'] = parse_date(str(review_elem.xpath(".//span[@class='date']/text()")[0]))
-    review_votes = review_elem.xpath(f".//ul[@class='useful']/li[@id='comment_num_vote_{review_data['reviewId']}']"
-                                     f"/text()")[0]
-    review_data['userPositiveRating'], review_data['userNegativeRating'] = list(map(int, review_votes.split(' / ')))
-    review_meta = review_elem.xpath(f".//div[@itemprop='author']/div")[0]
-    review_data['reviewAuthor'] = review_meta.xpath(f".//p[@class='profile_name']/a")[0].text or ''
-    review_data['reviewTitle'] = review_meta.xpath(f".//p[@class='sub_title']")[0].text or ''
-    # review_data['reviewDescription'] = ''.join(review_elem.xpath(f".//span[@itemprop='reviewBody']/text()"))
-    return review_data
+def parse_reviews_page(reviews_page):
+    if reviews_page is None:
+        return {value[0]: None for value in REVIEW_COUNTS.values()}
+    counts = {elem.attrib['class']: elem.xpath(".//b/text()")[0]
+              for elem in reviews_page.xpath("//ul[@class='resp_type']/li")}
+    return {value[0]: value[1](counts[count]) for count, value in REVIEW_COUNTS.items()}
 
 
 class Connector:
@@ -130,7 +102,7 @@ class Connector:
         self.db = client.get_database()
 
         collections = self.db.collection_names()
-        for collection in ['films', 'persons', 'film_person', 'reviews']:
+        for collection in ['films', 'film_person']:
             if collection in collections:
                 self.db.drop_collection(collection)
             self.db.create_collection(collection)
@@ -188,62 +160,31 @@ class Connector:
                 break
             page += 1
 
-    def _get_reviews_page_from_kinopoisk(self, film_id):
-        page = 1
-        while True:
-            reviews_page = self._make_kinopoisk_request(f'https://www.kinopoisk.ru/film/{film_id}/reviews/ord/date'
-                                                        f'/status/all/perpage/200/page/{page}/')
-            if reviews_page is None:
-                break
-
-            reviews = reviews_page.xpath("//div[@class='reviewItem userReview']/@data-id")
-            if len(reviews) == 0:
-                self._update_log(f'review page: {page} - no reviews')
-                break
-
-            self._update_log(f'review page: {page}')
-            yield reviews_page
-
-            navigator_list = reviews_page.xpath("//div[@class='navigator']/ul/li")
-            if len(navigator_list) == 0 or 'class' not in navigator_list[-1].attrib:
-                break
-            page += 1
-
-    def _connect_film_reviews(self, film_id):
-        review_ids = set()
-        for reviews_page in self._get_reviews_page_from_kinopoisk(film_id):
-            for review_obj in reviews_page.xpath("//div[@class='reviewItem userReview']"):
-                review_data = parse_review(review_obj)
-                if review_data['reviewId'] in review_ids:
-                    continue
-                review_data['filmId'] = film_id
-                self.buffers['reviews'].add(review_data)
-                review_ids.add(review_data['reviewId'])
-        self._update_log('reviews were connected')
-
     def _connect_person(self, person_id):
         person_data = self._make_api_request(f'https://kinopoiskapiunofficial.tech/api/v1/staff/{person_id}')
         person_data.pop('films')
         self.buffers['persons'].add(person_data)
 
-    def _connect_film_persons(self, film_id, person_ids):
+    def _connect_film_persons(self, film_id):
         film_persons = self._make_api_request(f'https://kinopoiskapiunofficial.tech/api/v1/staff?filmId={film_id}')
         if film_persons is None:
             return
         for film_person in film_persons:
-            if film_person['staffId'] not in person_ids:
-                self._connect_person(film_person['staffId'])
-                person_ids.add(film_person['staffId'])
-
             film_person_data = {'filmId': film_id, 'personId': film_person['staffId']}
             film_person_data.update({field: film_person[field]
-                                     for field in ['description', 'professionText', 'professionKey']})
+                                     for field in ['nameRu', 'nameEn', 'description', 'professionText',
+                                                   'professionKey']})
             self.buffers['film_person'].add(film_person_data)
-        self._update_log('persons were connected')
+        self._update_log('film persons were connected')
 
     def _connect_film(self, film_id):
         film_data = self._make_api_request(f'https://kinopoiskapiunofficial.tech/api/v2.1/films/{film_id}'
                                            f'?append_to_response=BUDGET&append_to_response=RATING')
+        film_data['data'].pop('facts')
+
+        reviews_page = self._make_kinopoisk_request(f'https://www.kinopoisk.ru/film/{film_id}/reviews/')
+        film_data['review'] = parse_reviews_page(reviews_page)
+
         self.buffers['films'].add(film_data)
         self._update_log('film was connected')
 
@@ -257,7 +198,6 @@ class Connector:
 
         self._init_database()
 
-        person_ids = set()
         film_ids = set()
         for film_id in self._get_film_id_from_kinopoisk():
             if film_id in film_ids:
@@ -265,9 +205,7 @@ class Connector:
             self._update_log(f'filmId: {film_id}')
             self._connect_film(film_id)
 
-            self._connect_film_reviews(film_id)
-
-            self._connect_film_persons(film_id, person_ids)
+            self._connect_film_persons(film_id)
             film_ids.add(film_id)
 
         for buffer in self.buffers.values():
