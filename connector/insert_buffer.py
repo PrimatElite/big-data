@@ -1,5 +1,5 @@
 from pymongo.collection import Collection
-from typing import Callable
+from typing import Callable, Iterable
 
 
 class InsertBuffer:
@@ -18,5 +18,10 @@ class InsertBuffer:
 
     def add(self, obj: dict):
         self.buffer.append(obj)
+        if len(self.buffer) >= self.buffer_size:
+            self.flush()
+
+    def extend(self, objs: Iterable[dict]):
+        self.buffer.extend(objs)
         if len(self.buffer) >= self.buffer_size:
             self.flush()

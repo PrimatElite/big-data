@@ -14,6 +14,6 @@ class Request:
         try:
             response = self.session.get(url, headers=self.headers)
         except requests.exceptions.ConnectionError:
-            raise ConnectionError(url)
+            raise ConnectionError(url) from None
         response.connection.close()
         return response

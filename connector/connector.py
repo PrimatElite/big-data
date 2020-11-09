@@ -4,7 +4,7 @@ from pymongo import MongoClient
 from time import sleep
 from typing import Union
 
-from .errors import CaptchaError, KinopoiskError
+from .errors import CaptchaError, ConnectionError, KinopoiskError
 from .insert_buffer import InsertBuffer
 from .request import Request
 
@@ -169,28 +169,24 @@ class Connector:
                 break
             page += 1
 
-    def _connect_film_persons(self, film_id):
+    def _get_film_persons(self, film_id):
         film_persons = self._make_api_request(f'https://kinopoiskapiunofficial.tech/api/v1/staff?filmId={film_id}')
         if film_persons is None:
-            return
-        for film_person in film_persons:
-            film_person_data = {'filmId': film_id, 'personId': film_person['staffId']}
-            film_person_data.update({field: film_person[field]
-                                     for field in ['nameRu', 'nameEn', 'description', 'professionText',
-                                                   'professionKey']})
-            self.buffers['film_person'].add(film_person_data)
-        self._update_log('film persons were connected')
+            return []
+        self._update_log('film persons were got')
+        return [{'filmId': film_id, 'personId': film_person['staffId'], 'nameRu': film_person['nameRu'],
+                 'nameEn': film_person['nameEn'], 'description': film_person['description'],
+                 'professionText': film_person['professionText'], 'professionKey': film_person['professionKey']}
+                for film_person in film_persons]
 
-    def _connect_film(self, film_id):
+    def _get_film(self, film_id):
         film_data = self._make_api_request(f'https://kinopoiskapiunofficial.tech/api/v2.1/films/{film_id}'
                                            f'?append_to_response=BUDGET&append_to_response=RATING')
         film_data['data'].pop('facts')
-
         reviews_page = self._make_kinopoisk_request(f'https://www.kinopoisk.ru/film/{film_id}/reviews/')
         film_data['review'] = parse_reviews_page(reviews_page)
-
-        self.buffers['films'].add(film_data)
-        self._update_log('film was connected')
+        self._update_log('film was got')
+        return film_data
 
     def _update_log(self, log_message):
         if self.is_log:
@@ -211,9 +207,16 @@ class Connector:
             if film_id in film_ids:
                 continue
             self._update_log(f'filmId: {film_id}')
-            self._connect_film(film_id)
 
-            self._connect_film_persons(film_id)
+            try:
+                film_data = self._get_film(film_id)
+                film_persons_data = self._get_film_persons(film_id)
+            except (ConnectionError, ValueError, CaptchaError, KinopoiskError, Exception) as exc:
+                self._flush_buffers()
+                raise exc from None
+
+            self.buffers['films'].add(film_data)
+            self.buffers['film_person'].extend(film_persons_data)
             film_ids.add(film_id)
 
         self._flush_buffers()
