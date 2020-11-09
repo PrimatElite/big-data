@@ -1,5 +1,7 @@
 import requests
 
+from .errors import ConnectionError
+
 
 class Request:
     def __init__(self, headers: dict = None):
@@ -9,6 +11,9 @@ class Request:
         self.session.trust_env = False
 
     def get(self, url):
-        response = self.session.get(url, headers=self.headers)
+        try:
+            response = self.session.get(url, headers=self.headers)
+        except requests.exceptions.ConnectionError:
+            raise ConnectionError(url)
         response.connection.close()
         return response

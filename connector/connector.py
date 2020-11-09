@@ -4,6 +4,7 @@ from pymongo import MongoClient
 from time import sleep
 from typing import Union
 
+from .errors import CaptchaError, KinopoiskError
 from .insert_buffer import InsertBuffer
 from .request import Request
 
@@ -45,10 +46,12 @@ REVIEW_COUNTS = {
 
 def parse_reviews_page(reviews_page):
     if reviews_page is None:
-        return {value[0]: None for value in REVIEW_COUNTS.values()}
-    counts = {elem.attrib['class']: elem.xpath(".//b/text()")[0]
-              for elem in reviews_page.xpath("//ul[@class='resp_type']/li")}
-    return {value[0]: value[1](counts[count]) for count, value in REVIEW_COUNTS.items()}
+        reviews_data = {value[0]: value[1]() for value in REVIEW_COUNTS.values()}
+    else:
+        counts = {elem.attrib['class']: elem.xpath(".//b/text()")[0]
+                  for elem in reviews_page.xpath("//ul[@class='resp_type']/li")}
+        reviews_data = {value[0]: value[1](counts.get(count, value[1]())) for count, value in REVIEW_COUNTS.items()}
+    return reviews_data
 
 
 class Connector:
@@ -132,8 +135,12 @@ class Connector:
         if response.status_code == HTTPStatus.OK:
             content = response.content.decode(response.encoding)
             if 'captcha' in content:
-                raise Exception('Oh, captcha')
-            return fromstring(content)
+                raise CaptchaError
+            page = fromstring(content)
+            errors = page.xpath("//h1[@class='error-message__title']")
+            if len(errors) > 0:
+                raise KinopoiskError(errors[0].text)
+            return page
         elif response.status_code == HTTPStatus.NOT_FOUND:
             print(f'Page {url} not found')
             return None
@@ -147,6 +154,8 @@ class Connector:
             request_url += f'&sort={self.sorting}'
         while True:
             films_page = self._make_kinopoisk_request(request_url % page)
+            if films_page is None:
+                break
 
             pages_count = int(films_page.xpath("//a[@class='paginator__page-number']/text()")[-1])
             films_count = len(films_page.xpath("//a[@class='selection-film-item-meta__link']/@href"))
@@ -159,11 +168,6 @@ class Connector:
             if page == pages_count:
                 break
             page += 1
-
-    def _connect_person(self, person_id):
-        person_data = self._make_api_request(f'https://kinopoiskapiunofficial.tech/api/v1/staff/{person_id}')
-        person_data.pop('films')
-        self.buffers['persons'].add(person_data)
 
     def _connect_film_persons(self, film_id):
         film_persons = self._make_api_request(f'https://kinopoiskapiunofficial.tech/api/v1/staff?filmId={film_id}')
@@ -192,6 +196,10 @@ class Connector:
         if self.is_log:
             print(log_message)
 
+    def _flush_buffers(self):
+        for buffer in self.buffers.values():
+            buffer.flush()
+
     def connect(self, is_log: bool = False):
         if is_log is not None and isinstance(is_log, bool):
             self.is_log = is_log
@@ -208,5 +216,4 @@ class Connector:
             self._connect_film_persons(film_id)
             film_ids.add(film_id)
 
-        for buffer in self.buffers.values():
-            buffer.flush()
+        self._flush_buffers()
