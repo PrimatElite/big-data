@@ -203,20 +203,21 @@ class Connector:
         self._init_database()
 
         film_ids = set()
-        for film_id in self._get_film_id_from_kinopoisk():
-            if film_id in film_ids:
-                continue
-            self._update_log(f'filmId: {film_id}')
+        try:
+            for film_id in self._get_film_id_from_kinopoisk():
+                if film_id in film_ids:
+                    self._update_log(f'film {film_id} has been already gotten')
+                    continue
+                self._update_log(f'filmId: {film_id}')
 
-            try:
                 film_data = self._get_film(film_id)
                 film_persons_data = self._get_film_persons(film_id)
-            except (ConnectionError, ValueError, CaptchaError, KinopoiskError, Exception) as exc:
-                self._flush_buffers()
-                raise exc from None
 
-            self.buffers['films'].add(film_data)
-            self.buffers['film_person'].extend(film_persons_data)
-            film_ids.add(film_id)
+                self.buffers['films'].add(film_data)
+                self.buffers['film_person'].extend(film_persons_data)
+                film_ids.add(film_id)
+        except (ConnectionError, ValueError, CaptchaError, KinopoiskError, Exception) as exc:
+            self._flush_buffers()
+            raise exc from None
 
         self._flush_buffers()
