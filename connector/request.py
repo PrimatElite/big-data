@@ -13,7 +13,7 @@ class Request:
     def get(self, url):
         try:
             response = self.session.get(url, headers=self.headers)
-        except requests.exceptions.ConnectionError:
+        except (requests.exceptions.ConnectionError, Exception):
             raise ConnectionError(url) from None
         response.connection.close()
         return response
