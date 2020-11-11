@@ -17,3 +17,8 @@ class ConnectionError(Exception):
 
     def __str__(self):
         return f'Failed to connect to {self.url}'
+
+
+class DBConnectionError(Exception):
+    def __str__(self):
+        return 'Failed to connect to MongoDB'

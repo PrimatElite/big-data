@@ -4,7 +4,7 @@ from pymongo import MongoClient
 from time import sleep
 from typing import Union
 
-from .errors import CaptchaError, ConnectionError, KinopoiskError
+from .errors import CaptchaError, ConnectionError, DBConnectionError, KinopoiskError
 from .insert_buffer import InsertBuffer
 from .request import Request
 
@@ -29,11 +29,6 @@ KINOPOISK_HEADERS = {
                   '7B%7D%7D; gdpr=0; _ym_uid=1604668140171070080; _ym_d=1604668140; mda=0; _ym_isad=1; '
                   '_ym_visorc_56177992=b; _ym_visorc_52332406=b; _ym_visorc_22663942=b; location=1',
     }
-
-BUFFER_SIZES = {
-    'films': 10,
-    'film_person': 100
-}
 
 REVIEW_COUNTS = {
     'all': ('reviewAllCount', int),
@@ -70,7 +65,7 @@ class Connector:
         self.kinopoisk_request = Request(KINOPOISK_HEADERS)
         self.api_request = Request({'X-API-KEY': self.api_key})
         self.db = None
-        self.buffers = {}
+        self.film_buffer = None
 
         self._check_fields()
 
@@ -104,13 +99,14 @@ class Connector:
         client = MongoClient(uri)
         self.db = client.get_database()
 
-        collections = self.db.collection_names()
-        for collection in ['films', 'film_person']:
-            if collection in collections:
-                self.db.drop_collection(collection)
-            self.db.create_collection(collection)
-            self.buffers[collection] = InsertBuffer(self.db.get_collection(collection), BUFFER_SIZES[collection],
-                                                    self._update_log)
+        try:
+            collections = self.db.collection_names()
+            if 'films' in collections:
+                self.db.drop_collection('films')
+            self.db.create_collection('films')
+        except Exception:
+            raise DBConnectionError from None
+        self.film_buffer = InsertBuffer(self.db.get_collection('films'), 10, self._update_log)
 
     def _make_api_request(self, url, _depth=0):
         response = self.api_request.get(url)
@@ -193,8 +189,7 @@ class Connector:
             print(log_message)
 
     def _flush_buffers(self):
-        for buffer in self.buffers.values():
-            buffer.flush()
+        self.film_buffer.flush()
 
     def connect(self, is_log: bool = False):
         if is_log is not None and isinstance(is_log, bool):
@@ -212,10 +207,12 @@ class Connector:
 
                 film_data = self._get_film(film_id)
                 film_persons_data = self._get_film_persons(film_id)
+                film_data['persons'] = film_persons_data
 
-                self.buffers['films'].add(film_data)
-                self.buffers['film_person'].extend(film_persons_data)
+                self.film_buffer.add(film_data)
                 film_ids.add(film_id)
+        except DBConnectionError as exc:
+            raise exc from None
         except (ConnectionError, ValueError, CaptchaError, KinopoiskError, Exception) as exc:
             self._flush_buffers()
             raise exc from None

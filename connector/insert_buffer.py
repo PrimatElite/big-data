@@ -1,6 +1,8 @@
 from pymongo.collection import Collection
 from typing import Callable, Iterable
 
+from .errors import DBConnectionError
+
 
 class InsertBuffer:
     def __init__(self, collection: Collection, buffer_size: int = 100, log_func: Callable = None):
@@ -11,7 +13,10 @@ class InsertBuffer:
 
     def flush(self):
         if len(self.buffer) > 0:
-            self.collection.insert_many(self.buffer)
+            try:
+                self.collection.insert_many(self.buffer)
+            except Exception:
+                raise DBConnectionError from None
             if isinstance(self.log_func, Callable):
                 self.log_func(f'flushed {len(self.buffer)} elements in collection {self.collection.name}')
             self.buffer = []
