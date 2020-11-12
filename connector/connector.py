@@ -73,7 +73,7 @@ class Connector:
         self.start_film_page = self.end_film_page = self.start_film = self.end_film = None
         self.current_film_page = self.current_film = None
         self.pages_count = None
-        self.film_ids = None
+        self.films_ids = None
 
         self._check_fields()
 
@@ -116,9 +116,9 @@ class Connector:
         except Exception:
             raise DBConnectionError('collection initialization failed') from None
         try:
-            self.film_ids = set()
+            self.films_ids = set()
             if not is_clear_database and 'films' in collections:
-                self.film_ids = set(film['data']['filmId'] for film in self.db.films.find())
+                self.films_ids = set(film['data']['filmId'] for film in self.db.films.find())
         except Exception:
             raise DBConnectionError('data from database initialization failed') from None
         self.film_buffer = InsertBuffer(self.db.films, BUFFER_SIZE, self._update_log)
@@ -247,7 +247,7 @@ class Connector:
 
         try:
             for film_id in self._get_film_id_from_kinopoisk():
-                if film_id in self.film_ids:
+                if film_id in self.films_ids:
                     self._update_log(f'film {film_id} has been already gotten')
                     continue
 
@@ -256,7 +256,7 @@ class Connector:
                 film_data['persons'] = film_persons_data
 
                 self.film_buffer.add(film_data)
-                self.film_ids.add(film_id)
+                self.films_ids.add(film_id)
         except DBConnectionError as exc:
             self._process_db_connection_error()
             raise exc from None
