@@ -1,3 +1,5 @@
+import traceback
+
 from http import HTTPStatus
 from lxml.html import fromstring
 from pymongo import MongoClient
@@ -29,6 +31,8 @@ KINOPOISK_HEADERS = {
                   '7B%7D%7D; gdpr=0; _ym_uid=1604668140171070080; _ym_d=1604668140; mda=0; _ym_isad=1; '
                   '_ym_visorc_56177992=b; _ym_visorc_52332406=b; _ym_visorc_22663942=b; location=1',
     }
+
+BUFFER_SIZE = 10
 
 REVIEW_COUNTS = {
     'all': ('reviewAllCount', int),
@@ -66,6 +70,10 @@ class Connector:
         self.api_request = Request({'X-API-KEY': self.api_key})
         self.db = None
         self.film_buffer = None
+        self.start_film_page = self.end_film_page = self.start_film = self.end_film = None
+        self.current_film_page = self.current_film = None
+        self.pages_count = None
+        self.film_ids = None
 
         self._check_fields()
 
@@ -89,7 +97,7 @@ class Connector:
         if self.username is not None and self.password is None:
             raise TypeError(f"Field 'password' must have type str, not NoneType")
 
-    def _init_database(self):
+    def _init_database(self, is_clear_database):
         uri = 'mongodb://'
         if self.username is not None:
             uri += f'{self.username}:{self.password}@'
@@ -101,12 +109,19 @@ class Connector:
 
         try:
             collections = self.db.collection_names()
-            if 'films' in collections:
-                self.db.drop_collection('films')
-            self.db.create_collection('films')
+            if 'films' in collections and is_clear_database:
+                self.db.films.delete_many({})
+            elif 'films' not in collections:
+                self.db.create_collection('films')
         except Exception:
-            raise DBConnectionError from None
-        self.film_buffer = InsertBuffer(self.db.get_collection('films'), 10, self._update_log)
+            raise DBConnectionError('collection initialization failed') from None
+        try:
+            self.film_ids = set()
+            if not is_clear_database and 'films' in collections:
+                self.film_ids = set(film['data']['filmId'] for film in self.db.films.find())
+        except Exception:
+            raise DBConnectionError('data from database initialization failed') from None
+        self.film_buffer = InsertBuffer(self.db.films, BUFFER_SIZE, self._update_log)
 
     def _make_api_request(self, url, _depth=0):
         response = self.api_request.get(url)
@@ -144,32 +159,43 @@ class Connector:
             raise Exception(f'Unknown error: {response.status_code}; {response.text}')
 
     def _get_film_id_from_kinopoisk(self):
-        page = 1
+        self.current_film_page = self.start_film_page
         request_url = 'https://www.kinopoisk.ru/lists/navigator/?page=%s&quick_filters=films&tab=all'
         if self.sorting is not None:
             request_url += f'&sort={self.sorting}'
         while True:
-            films_page = self._make_kinopoisk_request(request_url % page)
+            self.current_film = self.start_film if self.current_film_page == self.start_film_page else 1
+            films_page = self._make_kinopoisk_request(request_url % self.current_film_page)
             if films_page is None:
                 break
 
-            pages_count = int(films_page.xpath("//a[@class='paginator__page-number']/text()")[-1])
-            films_count = len(films_page.xpath("//a[@class='selection-film-item-meta__link']/@href"))
+            self.pages_count = int(films_page.xpath("//a[@class='paginator__page-number']/text()")[-1])
+            films_links = films_page.xpath("//a[@class='selection-film-item-meta__link']/@href")
+            films_count = len(films_links)
 
-            self._update_log(f'page: {page}/{pages_count}')
-            for i, film_link in enumerate(films_page.xpath("//a[@class='selection-film-item-meta__link']/@href")):
-                self._update_log(f'film: {i + 1}/{films_count}')
-                yield int(film_link.replace('/', ' ').strip().split()[-1])
-
-            if page == pages_count:
+            if self.current_film_page == self.end_film_page or self.current_film_page == self.pages_count:
+                for i, film_link in enumerate(films_links[:self.end_film + 1]):
+                    self.current_film = i + 1
+                    film_id = int(film_link.replace('/', ' ').strip().split()[-1])
+                    self._update_log(f'page: {self.current_film_page}/{self.pages_count}; '
+                                     f'film: {self.current_film}/{films_count}; filmId: {film_id}')
+                    yield film_id
                 break
-            page += 1
+            else:
+                start_film = self.current_film
+                for i, film_link in enumerate(films_links[start_film - 1:]):
+                    self.current_film = i + start_film
+                    film_id = int(film_link.replace('/', ' ').strip().split()[-1])
+                    self._update_log(f'page: {self.current_film_page}/{self.pages_count}; '
+                                     f'film: {self.current_film}/{films_count}; filmId: {film_id}')
+                    yield film_id
+
+            self.current_film_page += 1
 
     def _get_film_persons(self, film_id):
         film_persons = self._make_api_request(f'https://kinopoiskapiunofficial.tech/api/v1/staff?filmId={film_id}')
         if film_persons is None:
             return []
-        self._update_log('film persons were got')
         return [{'filmId': film_id, 'personId': film_person['staffId'], 'nameRu': film_person['nameRu'],
                  'nameEn': film_person['nameEn'], 'description': film_person['description'],
                  'professionText': film_person['professionText'], 'professionKey': film_person['professionKey']}
@@ -178,43 +204,93 @@ class Connector:
     def _get_film(self, film_id):
         film_data = self._make_api_request(f'https://kinopoiskapiunofficial.tech/api/v2.1/films/{film_id}'
                                            f'?append_to_response=BUDGET&append_to_response=RATING')
+        if film_data is None:
+            raise Exception(f"Can't find information about film {film_id}")
         film_data['data'].pop('facts')
         reviews_page = self._make_kinopoisk_request(f'https://www.kinopoisk.ru/film/{film_id}/reviews/')
         film_data['review'] = parse_reviews_page(reviews_page)
-        self._update_log('film was got')
         return film_data
 
     def _update_log(self, log_message):
         if self.is_log:
             print(log_message)
 
-    def _flush_buffers(self):
-        self.film_buffer.flush()
+    def _process_db_connection_error(self, buffer_size=BUFFER_SIZE):
+        # does not take into account unexpected repetitions of films
+        successful_films = 30 * (self.current_film_page - self.start_film_page) - self.start_film + 1 \
+                           + self.current_film - buffer_size
+        previous_films = 30 * (self.start_film_page - 1) + self.start_film - 1
+        all_films = successful_films + previous_films
+        last_successful_page = all_films // 30
+        last_successful_film = all_films % 30
+        if successful_films == 0:
+            self._update_log('No successful inserts in database')
+        elif last_successful_film > 0:
+            self._update_log(f'Last successful insert in database: page {last_successful_page + 1}, '
+                             f'film {last_successful_film} ({successful_films} films)')
+        else:
+            self._update_log(f'Last successful insert in database: page {last_successful_page}, film 30 '
+                             f'({successful_films} films)')
 
-    def connect(self, is_log: bool = False):
-        if is_log is not None and isinstance(is_log, bool):
-            self.is_log = is_log
+    def _flush_buffer(self):
+        try:
+            self.film_buffer.flush()
+        except DBConnectionError as exc:
+            self._process_db_connection_error(len(self.film_buffer))
+            raise exc from None
 
-        self._init_database()
+    def _connect(self, start_film_page, end_film_page, start_film, end_film):
+        self.start_film_page = start_film_page
+        self.end_film_page = end_film_page
+        self.start_film = start_film
+        self.end_film = end_film
 
-        film_ids = set()
         try:
             for film_id in self._get_film_id_from_kinopoisk():
-                if film_id in film_ids:
+                if film_id in self.film_ids:
                     self._update_log(f'film {film_id} has been already gotten')
                     continue
-                self._update_log(f'filmId: {film_id}')
 
                 film_data = self._get_film(film_id)
                 film_persons_data = self._get_film_persons(film_id)
                 film_data['persons'] = film_persons_data
 
                 self.film_buffer.add(film_data)
-                film_ids.add(film_id)
+                self.film_ids.add(film_id)
         except DBConnectionError as exc:
+            self._process_db_connection_error()
             raise exc from None
         except (ConnectionError, ValueError, CaptchaError, KinopoiskError, Exception) as exc:
-            self._flush_buffers()
+            self._flush_buffer()
             raise exc from None
 
-        self._flush_buffers()
+        self._flush_buffer()
+
+    def connect(self, start_film_page: int = 1, end_film_page: Union[int, None] = None, start_film: int = 1,
+                end_film: int = 30, is_clear_database: bool = True, is_log: bool = False):
+        if is_log is not None and isinstance(is_log, bool):
+            self.is_log = is_log
+
+        self._init_database(is_clear_database)
+
+        start_film_page = max(start_film_page, 1)
+        end_film_page = end_film_page
+        start_film = max(start_film, 1)
+        end_film = min(max(end_film, 1), 30)
+        if end_film_page is not None and start_film_page > end_film_page:
+            return
+
+        while True:
+            try:
+                self._connect(start_film_page, end_film_page, start_film, end_film)
+                break
+            except DBConnectionError:
+                raise
+            except KinopoiskError:
+                if self.is_log:
+                    traceback.print_exc()
+                start_film_page = self.current_film_page
+                start_film = self.current_film
+                sleep(1)
+            except (ConnectionError, ValueError, CaptchaError, Exception):
+                raise

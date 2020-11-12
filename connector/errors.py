@@ -20,5 +20,8 @@ class ConnectionError(Exception):
 
 
 class DBConnectionError(Exception):
+    def __init__(self, message):
+        self.message = message
+
     def __str__(self):
-        return 'Failed to connect to MongoDB'
+        return f'Failed to connect to MongoDB: {self.message}'
