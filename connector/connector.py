@@ -207,8 +207,9 @@ class Connector:
         self._update_log('film persons were got')
         return [{'filmId': film_id, 'personId': film_person['staffId'], 'nameRu': film_person['nameRu'],
                  'nameEn': film_person['nameEn'], 'description': film_person['description'],
-                 'professionText': film_person['professionText'], 'professionKey': film_person['professionKey']}
-                for film_person in film_persons]
+                 'professionText': film_person['professionText'], 'professionKey': film_person['professionKey'],
+                 'number': i + 1}
+                for i, film_person in enumerate(film_persons)]
 
     def _get_film(self, film_id):
         film_data = self._make_api_request(f'https://kinopoiskapiunofficial.tech/api/v2.1/films/{film_id}'
