@@ -6,25 +6,25 @@ from .errors import DBConnectionError
 
 class InsertBuffer:
     def __init__(self, collection: Collection, buffer_size: int = 100, log_func: Callable = None):
-        self.collection = collection
-        self.buffer_size = buffer_size
-        self.buffer = []
-        self.log_func = log_func
+        self._collection = collection
+        self._buffer_size = buffer_size
+        self._buffer = []
+        self._log_func = log_func
 
     def __len__(self):
-        return len(self.buffer)
+        return len(self._buffer)
 
     def flush(self):
-        if len(self.buffer) > 0:
+        if len(self._buffer) > 0:
             try:
-                self.collection.insert_many(self.buffer)
+                self._collection.insert_many(self._buffer)
             except Exception:
                 raise DBConnectionError('insertion in database failed') from None
-            if isinstance(self.log_func, Callable):
-                self.log_func(f'flushed {len(self.buffer)} elements in collection {self.collection.name}')
-            self.buffer = []
+            if isinstance(self._log_func, Callable):
+                self._log_func(f'flushed {len(self._buffer)} elements in collection {self._collection.name}')
+            self._buffer = []
 
     def add(self, obj: dict):
-        self.buffer.append(obj)
-        if len(self.buffer) >= self.buffer_size:
+        self._buffer.append(obj)
+        if len(self._buffer) >= self._buffer_size:
             self.flush()

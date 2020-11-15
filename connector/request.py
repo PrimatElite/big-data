@@ -5,14 +5,14 @@ from .errors import ConnectionError
 
 class Request:
     def __init__(self, headers: dict = None):
-        self.session = requests.Session()
-        self.headers = headers
+        self._session = requests.Session()
+        self._headers = headers
 
-        self.session.trust_env = False
+        self._session.trust_env = False
 
     def get(self, url):
         try:
-            response = self.session.get(url, headers=self.headers)
+            response = self._session.get(url, headers=self._headers)
         except (requests.exceptions.ConnectionError, Exception):
             raise ConnectionError(url) from None
         response.connection.close()

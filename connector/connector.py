@@ -12,7 +12,7 @@ from .insert_buffer import InsertBuffer
 from .request import Request
 
 
-KINOPOISK_HEADERS = {
+_KINOPOISK_HEADERS = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
                       'Chrome/85.0.4183.121 Safari/537.36',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
@@ -33,9 +33,9 @@ KINOPOISK_HEADERS = {
                   '_ym_visorc_56177992=b; _ym_visorc_52332406=b; _ym_visorc_22663942=b; location=1',
     }
 
-BUFFER_SIZE = 30
+_BUFFER_SIZE = 30
 
-REVIEW_COUNTS = {
+_REVIEW_COUNTS = {
     'all': ('reviewAllCount', int),
     'pos': ('reviewPositiveCount', int),
     'neg': ('reviewNegativeCount', int),
@@ -44,13 +44,13 @@ REVIEW_COUNTS = {
 }
 
 
-def parse_reviews_page(reviews_page):
+def _parse_reviews_page(reviews_page):
     if reviews_page is None:
-        reviews_data = {value[0]: value[1]() for value in REVIEW_COUNTS.values()}
+        reviews_data = {value[0]: value[1]() for value in _REVIEW_COUNTS.values()}
     else:
         counts = {elem.attrib['class']: elem.xpath(".//b/text()")[0]
                   for elem in reviews_page.xpath("//ul[@class='resp_type']/li")}
-        reviews_data = {value[0]: value[1](counts.get(count, value[1]())) for count, value in REVIEW_COUNTS.items()}
+        reviews_data = {value[0]: value[1](counts.get(count, value[1]())) for count, value in _REVIEW_COUNTS.items()}
     return reviews_data
 
 
@@ -58,74 +58,82 @@ class Connector:
     def __init__(self, api_key: str, database: str, username: Union[str, None] = None,
                  password: Union[str, None] = None, host: str = 'localhost', port: Union[int, str] = 27017,
                  authentication_database: Union[str, None] = None, sorting: Union[str, None] = None):
-        self.api_key = api_key
-        self.username = username
-        self.password = password
-        self.database = database
-        self.host = host
-        self.port = port
-        self.authentication_database = authentication_database
-        self.sorting = sorting
-        self.log_file = None
-        self.kinopoisk_request = Request(KINOPOISK_HEADERS)
-        self.api_request = Request({'X-API-KEY': self.api_key})
-        self.db = None
-        self.film_buffer = None
-        self.start_film_page = self.end_film_page = self.start_film = self.end_film = None
-        self.current_film_page = self.current_film = None
-        self.pages_count = None
-        self.films_ids = None
+        self._api_key = api_key
+        self._username = username
+        self._password = password
+        self._database = database
+        self._host = host
+        self._port = port
+        self._authentication_database = authentication_database
+        self._sorting = sorting
+        self._log_file = None
+        self._kinopoisk_request = Request(_KINOPOISK_HEADERS)
+        self._api_request = Request({'X-API-KEY': self._api_key})
+        self._db = None
+        self._film_buffer = None
+        self._start_film_page = self._end_film_page = self._start_film = self._end_film = None
+        self._current_film_page = self._current_film = None
+        self._pages_count = None
+        self._films_ids = None
 
         self._check_fields()
 
+    @property
+    def current_film_page(self):
+        return self._current_film_page
+
+    @property
+    def current_film(self):
+        return self._current_film
+
     def _check_fields(self):
         field_types = {
-            'api_key': [str],
-            'username': [str, type(None)],
-            'password': [str, type(None)],
-            'database': [str],
-            'host': [str],
-            'port': [int, str],
-            'authentication_database': [str, type(None)],
-            'sorting': [str, type(None)]
+            '_api_key': [str],
+            '_username': [str, type(None)],
+            '_password': [str, type(None)],
+            '_database': [str],
+            '_host': [str],
+            '_port': [int, str],
+            '_authentication_database': [str, type(None)],
+            '_sorting': [str, type(None)]
         }
         for field, types in field_types.items():
             value = getattr(self, field)
             if not any(isinstance(value, type_) for type_ in types):
-                raise TypeError(f"Field '{field}' must have type{'s' if len(types) > 1 else ''} "
+                raise TypeError(f"Field '{field[1:]}' must have type{'s' if len(types) > 1 else ''} "
                                 f"{', '.join(map(lambda type_: type_.__name__, types[:-1]))}"
                                 f"{' or ' if len(types) > 1 else ''}{types[-1].__name__}, not {type(value).__name__}")
-        if self.username is not None and self.password is None:
+        if self._username is not None and self._password is None:
             raise TypeError(f"Field 'password' must have type str, not NoneType")
 
     def _init_database(self, is_clear_database):
         uri = 'mongodb://'
-        if self.username is not None:
-            uri += f'{self.username}:{self.password}@'
-        uri += f'{self.host}:{self.port}/{self.database}'
-        if self.authentication_database is not None:
-            uri += f'?authSource={self.authentication_database}'
+        if self._username is not None:
+            uri += f'{self._username}:{self._password}@'
+        uri += f'{self._host}:{self._port}/{self._database}'
+        if self._authentication_database is not None:
+            uri += f'?authSource={self._authentication_database}'
         client = MongoClient(uri)
-        self.db = client.get_database()
+        self._db = client.get_database()
 
         try:
-            collections = self.db.collection_names()
+            collections = self._db.collection_names()
             if 'films' in collections and is_clear_database:
-                self.db.films.delete_many({})
+                self._db.films.delete_many({})
             elif 'films' not in collections:
-                self.db.create_collection('films')
+                self._db.create_collection('films')
         except Exception:
             raise DBConnectionError('collection initialization failed') from None
         try:
-            self.films_ids = set()
+            self._films_ids = set()
             if not is_clear_database and 'films' in collections:
-                self.films_ids = set(film['data']['filmId'] for film in self.db.films.find())
+                self._films_ids = set(film['data']['filmId'] for film in self._db.films.find())
         except Exception:
             raise DBConnectionError('data from database initialization failed') from None
-        self.film_buffer = InsertBuffer(self.db.films, BUFFER_SIZE, self._update_log)
+        self._film_buffer = InsertBuffer(self._db.films, _BUFFER_SIZE, self._update_log)
 
     def _make_api_request(self, url, _depth=0):
-        response = self.api_request.get(url)
+        response = self._api_request.get(url)
         if response.status_code == HTTPStatus.OK:
             return response.json()
         elif response.status_code == HTTPStatus.UNAUTHORIZED:
@@ -143,7 +151,7 @@ class Connector:
             raise Exception(f'Undocumented error: {response.status_code}; {response.text}')
 
     def _make_kinopoisk_request(self, url):
-        response = self.kinopoisk_request.get(url)
+        response = self._kinopoisk_request.get(url)
         if response.status_code == HTTPStatus.OK:
             content = response.content.decode(response.encoding)
             if 'captcha' in content:
@@ -160,37 +168,37 @@ class Connector:
             raise Exception(f'Unknown error: {response.status_code}; {response.text}')
 
     def _get_film_id_from_kinopoisk(self):
-        self.current_film_page = self.start_film_page
+        self._current_film_page = self._start_film_page
         request_url = 'https://www.kinopoisk.ru/lists/navigator/?page=%s&quick_filters=films&tab=all'
-        if self.sorting is not None:
-            request_url += f'&sort={self.sorting}'
+        if self._sorting is not None:
+            request_url += f'&sort={self._sorting}'
         while True:
-            self.current_film = self.start_film if self.current_film_page == self.start_film_page else 1
-            films_page = self._make_kinopoisk_request(request_url % self.current_film_page)
+            self._current_film = self._start_film if self._current_film_page == self._start_film_page else 1
+            films_page = self._make_kinopoisk_request(request_url % self._current_film_page)
             if films_page is None:
                 break
 
-            self.pages_count = int(films_page.xpath("//a[@class='paginator__page-number']/text()")[-1])
+            self._pages_count = int(films_page.xpath("//a[@class='paginator__page-number']/text()")[-1])
             films_links = films_page.xpath("//a[@class='selection-film-item-meta__link']/@href")
             films_count = len(films_links)
 
-            is_end = self.current_film_page == self.end_film_page or self.current_film_page == self.pages_count
-            start_film = self.current_film
-            end_film = self.end_film if is_end else films_count
-            bar_desc = f'page: {self.current_film_page}/{self.pages_count}'
+            is_end = self._current_film_page == self._end_film_page or self._current_film_page == self._pages_count
+            start_film = self._current_film
+            end_film = self._end_film if is_end else films_count
+            bar_desc = f'page: {self._current_film_page}/{self._pages_count}'
             bar = tqdm(films_links[start_film - 1:end_film + 1], initial=start_film - 1, ascii=True,
                        total=end_film - start_film + 1, desc=bar_desc)
             for i, film_link in enumerate(bar):
-                self.current_film = i + start_film
+                self._current_film = i + start_film
                 film_id = int(film_link.replace('/', ' ').strip().split()[-1])
                 bar.set_description(f'{bar_desc}; filmId: {film_id}')
-                self._update_log(f'page: {self.current_film_page}/{self.pages_count}; '
-                                 f'film: {self.current_film}/{films_count}; filmId: {film_id}')
+                self._update_log(f'page: {self._current_film_page}/{self._pages_count}; '
+                                 f'film: {self._current_film}/{films_count}; filmId: {film_id}')
                 yield film_id
 
             if is_end:
                 break
-            self.current_film_page += 1
+            self._current_film_page += 1
 
     def _get_film_persons(self, film_id):
         film_persons = self._make_api_request(f'https://kinopoiskapiunofficial.tech/api/v1/staff?filmId={film_id}')
@@ -209,19 +217,19 @@ class Connector:
             raise Exception(f"Can't find information about film {film_id}")
         film_data['data'].pop('facts')
         reviews_page = self._make_kinopoisk_request(f'https://www.kinopoisk.ru/film/{film_id}/reviews/')
-        film_data['review'] = parse_reviews_page(reviews_page)
+        film_data['review'] = _parse_reviews_page(reviews_page)
         self._update_log('film was got')
         return film_data
 
     def _update_log(self, log_message):
-        if self.log_file is not None:
-            print(log_message, file=self.log_file, flush=True)
+        if self._log_file is not None:
+            print(log_message, file=self._log_file, flush=True)
 
-    def _process_db_connection_error(self, buffer_size=BUFFER_SIZE):
+    def _process_db_connection_error(self, buffer_size=_BUFFER_SIZE):
         # does not take into account unexpected repetitions of films
-        successful_films = 30 * (self.current_film_page - self.start_film_page) - self.start_film + 1 \
-                           + self.current_film - buffer_size
-        previous_films = 30 * (self.start_film_page - 1) + self.start_film - 1
+        successful_films = 30 * (self._current_film_page - self._start_film_page) - self._start_film + 1 \
+                           + self._current_film - buffer_size
+        previous_films = 30 * (self._start_film_page - 1) + self._start_film - 1
         all_films = successful_films + previous_films
         last_successful_page = all_films // 30
         last_successful_film = all_films % 30
@@ -236,25 +244,25 @@ class Connector:
 
     def _flush_buffer(self):
         try:
-            self.film_buffer.flush()
+            self._film_buffer.flush()
         except DBConnectionError as exc:
-            self._process_db_connection_error(len(self.film_buffer))
+            self._process_db_connection_error(len(self._film_buffer))
             raise exc from None
 
     def _close_log_file(self):
-        if self.log_file is not None:
-            self.log_file.close()
-            self.log_file = None
+        if self._log_file is not None:
+            self._log_file.close()
+            self._log_file = None
 
     def _connect(self, start_film_page, end_film_page, start_film, end_film):
-        self.start_film_page = start_film_page
-        self.end_film_page = end_film_page
-        self.start_film = start_film
-        self.end_film = end_film
+        self._start_film_page = start_film_page
+        self._end_film_page = end_film_page
+        self._start_film = start_film
+        self._end_film = end_film
 
         try:
             for film_id in self._get_film_id_from_kinopoisk():
-                if film_id in self.films_ids:
+                if film_id in self._films_ids:
                     self._update_log(f'film {film_id} has been already gotten')
                     continue
 
@@ -262,8 +270,8 @@ class Connector:
                 film_persons_data = self._get_film_persons(film_id)
                 film_data['persons'] = film_persons_data
 
-                self.film_buffer.add(film_data)
-                self.films_ids.add(film_id)
+                self._film_buffer.add(film_data)
+                self._films_ids.add(film_id)
         except DBConnectionError as exc:
             self._process_db_connection_error()
             raise exc from None
@@ -276,9 +284,9 @@ class Connector:
     def connect(self, start_film_page: int = 1, end_film_page: Union[int, None] = None, start_film: int = 1,
                 end_film: int = 30, is_clear_database: bool = True, log_file_path: Union[str, None] = None):
         if log_file_path is not None:
-            self.log_file = open(log_file_path, 'w')
+            self._log_file = open(log_file_path, 'w')
         else:
-            self.log_file = None
+            self._log_file = None
 
         self._init_database(is_clear_database)
 
@@ -299,10 +307,10 @@ class Connector:
                 raise
             except KinopoiskError:
                 traceback.print_exc()
-                if self.log_file is not None:
-                    traceback.print_exc(file=self.log_file)
-                start_film_page = self.current_film_page
-                start_film = self.current_film
+                if self._log_file is not None:
+                    traceback.print_exc(file=self._log_file)
+                start_film_page = self._current_film_page
+                start_film = self._current_film
                 sleep(1)
             except (ConnectionError, ValueError, CaptchaError, KeyboardInterrupt, Exception):
                 self._close_log_file()
