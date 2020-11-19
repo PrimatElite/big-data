@@ -215,7 +215,8 @@ class Connector:
         film_data = self._make_api_request(f'https://kinopoiskapiunofficial.tech/api/v2.1/films/{film_id}'
                                            f'?append_to_response=BUDGET&append_to_response=RATING')
         if film_data is None:
-            raise Exception(f"Can't find information about film {film_id}")
+            self._update_log(f"Can't find information about film {film_id}")
+            return None
         film_data['data'].pop('facts')
         reviews_page = self._make_kinopoisk_request(f'https://www.kinopoisk.ru/film/{film_id}/reviews/')
         film_data['review'] = _parse_reviews_page(reviews_page)
@@ -227,7 +228,7 @@ class Connector:
             print(log_message, file=self._log_file, flush=True)
 
     def _process_db_connection_error(self, buffer_size=_BUFFER_SIZE):
-        # does not take into account unexpected repetitions of films
+        # does not take into account unexpected repetitions and skips of films
         successful_films = 30 * (self._current_film_page - self._start_film_page) - self._start_film + 1 \
                            + self._current_film - buffer_size
         previous_films = 30 * (self._start_film_page - 1) + self._start_film - 1
@@ -268,6 +269,8 @@ class Connector:
                     continue
 
                 film_data = self._get_film(film_id)
+                if film_data is None:
+                    continue
                 film_persons_data = self._get_film_persons(film_id)
                 film_data['persons'] = film_persons_data
 
