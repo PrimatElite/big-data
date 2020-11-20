@@ -30,9 +30,8 @@ if __name__ == '__main__':
     df = df.withColumn('ratingFilmCritics', convert_percent_to_float(df.ratingFilmCritics))
     df = df.withColumn('reviewAllPositiveRatio', convert_percent_to_float(df.reviewAllPositiveRatio))
 
-    sc = spark.sparkContext
-    rating_film_critics = sc.parallelize(df.select('ratingFilmCritics').rdd.map(lambda r: r[0]).collect())
-    review_all_positive_ratio = sc.parallelize(df.select('reviewAllPositiveRatio').rdd.map(lambda r: r[0]).collect())
+    rating_film_critics = df.select('ratingFilmCritics').rdd.map(lambda r: r[0])
+    review_all_positive_ratio = df.select('reviewAllPositiveRatio').rdd.map(lambda r: r[0])
     spearman_corr = Statistics.corr(rating_film_critics, review_all_positive_ratio, method='spearman')
 
     print('Spearman\'s rank correlation coefficient between ratingFilmCritics and reviewAllPositiveRatio = ', spearman_corr)
