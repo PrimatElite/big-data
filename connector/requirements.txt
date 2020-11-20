@@ -2,3 +2,4 @@ lxml
 pymongo
 requests
 tqdm
+pyspark

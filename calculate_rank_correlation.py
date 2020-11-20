@@ -24,7 +24,7 @@ if __name__ == '__main__':
     df = spark.read.format('com.mongodb.spark.sql.DefaultSource').options(uri=uri, collection='films').load()
 
     df = df.select('rating.ratingFilmCritics', 'review.reviewAllPositiveRatio')
-    df = df.filter(df.ratingFilmCritics.isNotNull() & (df.reviewAllPositiveRatio != str()))
+    df = df.filter(df.ratingFilmCritics.isNotNull() & (df.ratingFilmCritics != str()) & (df.reviewAllPositiveRatio != str()))
 
     convert_percent_to_float = udf(lambda p: float(p[:-1]), FloatType())
     df = df.withColumn('ratingFilmCritics', convert_percent_to_float(df.ratingFilmCritics))
