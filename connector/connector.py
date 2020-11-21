@@ -12,6 +12,8 @@ from .insert_buffer import InsertBuffer
 from .request import Request
 
 
+FILMS_PER_PAGE = 50
+
 _KINOPOISK_HEADERS = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
                       'Chrome/85.0.4183.121 Safari/537.36',
@@ -33,7 +35,7 @@ _KINOPOISK_HEADERS = {
                   '_ym_visorc_56177992=b; _ym_visorc_52332406=b; _ym_visorc_22663942=b; location=1',
     }
 
-_BUFFER_SIZE = 30
+_BUFFER_SIZE = FILMS_PER_PAGE
 
 _REVIEW_COUNTS = {
     'all': ('reviewAllCount', int),
@@ -42,8 +44,6 @@ _REVIEW_COUNTS = {
     'neut': ('reviewNeutralCount', int),
     'perc': ('reviewAllPositiveRatio', str)
 }
-
-FILMS_PER_PAGE = 50
 
 
 def _parse_reviews_page(reviews_page):
