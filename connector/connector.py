@@ -12,6 +12,8 @@ from .insert_buffer import InsertBuffer
 from .request import Request
 
 
+FILMS_PER_PAGE = 50
+
 _KINOPOISK_HEADERS = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
                       'Chrome/85.0.4183.121 Safari/537.36',
@@ -33,7 +35,7 @@ _KINOPOISK_HEADERS = {
                   '_ym_visorc_56177992=b; _ym_visorc_52332406=b; _ym_visorc_22663942=b; location=1',
     }
 
-_BUFFER_SIZE = 30
+_BUFFER_SIZE = FILMS_PER_PAGE
 
 _REVIEW_COUNTS = {
     'all': ('reviewAllCount', int),
@@ -215,7 +217,8 @@ class Connector:
         film_data = self._make_api_request(f'https://kinopoiskapiunofficial.tech/api/v2.1/films/{film_id}'
                                            f'?append_to_response=BUDGET&append_to_response=RATING')
         if film_data is None:
-            raise Exception(f"Can't find information about film {film_id}")
+            self._update_log(f"Can't find information about film {film_id}")
+            return None
         film_data['data'].pop('facts')
         reviews_page = self._make_kinopoisk_request(f'https://www.kinopoisk.ru/film/{film_id}/reviews/')
         film_data['review'] = _parse_reviews_page(reviews_page)
@@ -227,20 +230,20 @@ class Connector:
             print(log_message, file=self._log_file, flush=True)
 
     def _process_db_connection_error(self, buffer_size=_BUFFER_SIZE):
-        # does not take into account unexpected repetitions of films
-        successful_films = 30 * (self._current_film_page - self._start_film_page) - self._start_film + 1 \
+        # does not take into account unexpected repetitions and skips of films
+        successful_films = FILMS_PER_PAGE * (self._current_film_page - self._start_film_page) - self._start_film + 1 \
                            + self._current_film - buffer_size
-        previous_films = 30 * (self._start_film_page - 1) + self._start_film - 1
+        previous_films = FILMS_PER_PAGE * (self._start_film_page - 1) + self._start_film - 1
         all_films = successful_films + previous_films
-        last_successful_page = all_films // 30
-        last_successful_film = all_films % 30
+        last_successful_page = all_films // FILMS_PER_PAGE
+        last_successful_film = all_films % FILMS_PER_PAGE
         if successful_films == 0:
             self._update_log('No successful inserts in database')
         elif last_successful_film > 0:
             self._update_log(f'Last successful insert in database: page {last_successful_page + 1}, '
                              f'film {last_successful_film} ({successful_films} films)')
         else:
-            self._update_log(f'Last successful insert in database: page {last_successful_page}, film 30 '
+            self._update_log(f'Last successful insert in database: page {last_successful_page}, film {FILMS_PER_PAGE} '
                              f'({successful_films} films)')
 
     def _flush_buffer(self):
@@ -268,6 +271,8 @@ class Connector:
                     continue
 
                 film_data = self._get_film(film_id)
+                if film_data is None:
+                    continue
                 film_persons_data = self._get_film_persons(film_id)
                 film_data['persons'] = film_persons_data
 
@@ -283,7 +288,7 @@ class Connector:
         self._flush_buffer()
 
     def connect(self, start_film_page: int = 1, end_film_page: Union[int, None] = None, start_film: int = 1,
-                end_film: int = 30, is_clear_database: bool = True, log_file_path: Union[str, None] = None):
+                end_film: int = FILMS_PER_PAGE, is_clear_database: bool = True, log_file_path: Union[str, None] = None):
         if log_file_path is not None:
             self._log_file = open(log_file_path, 'w')
         else:
@@ -294,7 +299,7 @@ class Connector:
         start_film_page = max(start_film_page, 1)
         end_film_page = end_film_page
         start_film = max(start_film, 1)
-        end_film = min(max(end_film, 1), 30)
+        end_film = min(max(end_film, 1), FILMS_PER_PAGE)
         if end_film_page is not None and start_film_page > end_film_page:
             return
 
