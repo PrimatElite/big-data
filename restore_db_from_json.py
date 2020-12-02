@@ -19,4 +19,3 @@ if __name__ == '__main__':
     connector = Connector('', args.database, args.username, args.password, args.host, args.port,
                           args.authenticationDatabase)
     connector.connect_from_file(args.inputFile, args.clearDatabase, args.logFile)
-
