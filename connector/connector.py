@@ -184,9 +184,9 @@ class Connector:
             films_links = films_page.xpath("//a[@class='selection-film-item-meta__link']/@href")
             films_count = len(films_links)
 
-            is_end = self._current_film_page == self._end_film_page or self._current_film_page == self._pages_count
+            is_end = self._current_film_page == self._end_film_page or self._current_film_page >= self._pages_count
             start_film = self._current_film
-            end_film = self._end_film if is_end else films_count
+            end_film = self._end_film if self._current_film_page == self._end_film_page else films_count
             bar_desc = f'page: {self._current_film_page}/{self._pages_count}'
             bar = tqdm(films_links[start_film - 1:end_film + 1], initial=start_film - 1, ascii=True,
                        total=end_film - start_film + 1, desc=bar_desc)
@@ -268,6 +268,9 @@ class Connector:
             for film_id in self._get_film_id_from_kinopoisk():
                 if film_id in self._films_ids:
                     self._update_log(f'film {film_id} has been already gotten')
+                    continue
+                elif film_id > 2000000:
+                    self._update_log("API doesn't support film id more than 2000000")
                     continue
 
                 film_data = self._get_film(film_id)
