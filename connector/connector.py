@@ -10,6 +10,7 @@ from typing import Union
 from .errors import CaptchaError, ConnectionError, DBConnectionError, KinopoiskError
 from .insert_buffer import InsertBuffer
 from .request import Request
+from utils import get_uri_mongodb
 
 
 FILMS_PER_PAGE = 50
@@ -109,12 +110,8 @@ class Connector:
             raise TypeError(f"Field 'password' must have type str, not NoneType")
 
     def _init_database(self, is_clear_database):
-        uri = 'mongodb://'
-        if self._username is not None:
-            uri += f'{self._username}:{self._password}@'
-        uri += f'{self._host}:{self._port}/{self._database}'
-        if self._authentication_database is not None:
-            uri += f'?authSource={self._authentication_database}'
+        uri = get_uri_mongodb(self._database, self._username, self._password, self._host, self._port,
+                              self._authentication_database)
         client = MongoClient(uri)
         self._db = client.get_database()
 
@@ -304,6 +301,7 @@ class Connector:
         start_film = max(start_film, 1)
         end_film = min(max(end_film, 1), FILMS_PER_PAGE)
         if end_film_page is not None and start_film_page > end_film_page:
+            self._close_log_file()
             return
 
         while True:
