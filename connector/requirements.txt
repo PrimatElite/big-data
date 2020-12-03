@@ -1,5 +1,6 @@
 lxml
+numpy
 pymongo
+pyspark
 requests
 tqdm
-pyspark
