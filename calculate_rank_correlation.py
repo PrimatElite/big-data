@@ -9,6 +9,8 @@ from pyspark.mllib.stat import Statistics
 
 def register_launch_arguments():
     parser = argparse.ArgumentParser(description='Serve the rank correlation calculation')
+    parser.add_argument('-u', '--username', help='username for authentication')
+    parser.add_argument('-p', '--password', help='password for authentication')
     parser.add_argument('-d', '--database', help='database to connect to', required=True)
     parser.add_argument('-host', '--host', help='server to connect to', default='localhost')
     parser.add_argument('-port', '--port', help='port to connect to', default=27017)
@@ -19,12 +21,15 @@ def register_launch_arguments():
 if __name__ == '__main__':
     args = register_launch_arguments()
 
-    uri = f'mongodb://{args.host}:{args.port}/{args.database}'
+    uri = 'mongodb://'
+    if args.username is not None and args.password is not None:
+        uri += f'{args.username}:{args.password}@'
+    uri += f'{args.host}:{args.port}/{args.database}'
     spark = SparkSession.builder.config('spark.jars.packages', 'org.mongodb.spark:mongo-spark-connector_2.12:3.0.0').getOrCreate()
     df = spark.read.format('com.mongodb.spark.sql.DefaultSource').options(uri=uri, collection='films').load()
 
     df = df.select('rating.ratingFilmCritics', 'review.reviewAllPositiveRatio')
-    df = df.filter(df.ratingFilmCritics.isNotNull() & (df.ratingFilmCritics != str()) & (df.reviewAllPositiveRatio != str()))
+    df = df.filter(df.ratingFilmCritics.isNotNull() & (df.ratingFilmCritics != '') & (df.reviewAllPositiveRatio != ''))
 
     convert_percent_to_float = udf(lambda p: float(p[:-1]), FloatType())
     df = df.withColumn('ratingFilmCritics', convert_percent_to_float(df.ratingFilmCritics))
