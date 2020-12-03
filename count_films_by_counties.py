@@ -21,6 +21,4 @@ if __name__ == '__main__':
 
     data_films = df.rdd.flatMap(lambda countries: countries[0]).map(lambda country: (country[0], 1)).reduceByKey(add) \
         .sortBy(lambda x: x[1], ascending=False).collect()
-    print(*data_films, sep="\n")
-
-
+    print(*data_films, sep='\n')
