@@ -34,4 +34,4 @@ if __name__ == '__main__':
     review_all_positive_ratio = df.rdd.map(lambda r: r[1])
     spearman_corr = Statistics.corr(rating_film_critics, review_all_positive_ratio, method='spearman')
 
-    print('Spearman\'s rank correlation coefficient between ratingFilmCritics and reviewAllPositiveRatio = ', spearman_corr)
+    print('Spearman\'s rank correlation coefficient between ratingFilmCritics and reviewAllPositiveRatio =', spearman_corr)
