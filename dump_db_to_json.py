@@ -8,7 +8,7 @@ from utils import get_uri_mongodb, update_argument_parser_mongodb
 
 
 def register_launch_arguments():
-    parser = argparse.ArgumentParser(description='Serve the connector application')
+    parser = argparse.ArgumentParser(description='Serve the database to JSON dumping')
     update_argument_parser_mongodb(parser)
     parser.add_argument('-o', '--outputFile', help='path to output file', default='films.json')
 
