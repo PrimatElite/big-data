@@ -1,3 +1,4 @@
+import json
 import traceback
 
 from http import HTTPStatus
@@ -10,6 +11,7 @@ from typing import Union
 from .errors import CaptchaError, ConnectionError, DBConnectionError, KinopoiskError
 from .insert_buffer import InsertBuffer
 from .request import Request
+from utils import get_uri_mongodb
 
 
 FILMS_PER_PAGE = 50
@@ -109,12 +111,8 @@ class Connector:
             raise TypeError(f"Field 'password' must have type str, not NoneType")
 
     def _init_database(self, is_clear_database):
-        uri = 'mongodb://'
-        if self._username is not None:
-            uri += f'{self._username}:{self._password}@'
-        uri += f'{self._host}:{self._port}/{self._database}'
-        if self._authentication_database is not None:
-            uri += f'?authSource={self._authentication_database}'
+        uri = get_uri_mongodb(self._database, self._username, self._password, self._host, self._port,
+                              self._authentication_database)
         client = MongoClient(uri)
         self._db = client.get_database()
 
@@ -184,9 +182,9 @@ class Connector:
             films_links = films_page.xpath("//a[@class='selection-film-item-meta__link']/@href")
             films_count = len(films_links)
 
-            is_end = self._current_film_page == self._end_film_page or self._current_film_page == self._pages_count
+            is_end = self._current_film_page == self._end_film_page or self._current_film_page >= self._pages_count
             start_film = self._current_film
-            end_film = self._end_film if is_end else films_count
+            end_film = self._end_film if self._current_film_page == self._end_film_page else films_count
             bar_desc = f'page: {self._current_film_page}/{self._pages_count}'
             bar = tqdm(films_links[start_film - 1:end_film + 1], initial=start_film - 1, ascii=True,
                        total=end_film - start_film + 1, desc=bar_desc)
@@ -269,6 +267,9 @@ class Connector:
                 if film_id in self._films_ids:
                     self._update_log(f'film {film_id} has been already gotten')
                     continue
+                elif film_id > 2000000:
+                    self._update_log("API doesn't support film id more than 2000000")
+                    continue
 
                 film_data = self._get_film(film_id)
                 if film_data is None:
@@ -301,6 +302,7 @@ class Connector:
         start_film = max(start_film, 1)
         end_film = min(max(end_film, 1), FILMS_PER_PAGE)
         if end_film_page is not None and start_film_page > end_film_page:
+            self._close_log_file()
             return
 
         while True:
@@ -321,3 +323,80 @@ class Connector:
             except (ConnectionError, ValueError, CaptchaError, KeyboardInterrupt, Exception):
                 self._close_log_file()
                 raise
+
+    def _get_film_data_from_file(self, file_object):
+        if file_object.readline() != '[\n':
+            raise Exception('Incorrect file')
+        count_str = file_object.readline()
+        if count_str[-1] != '\n':
+            raise Exception('Incorrect file')
+        if count_str[-2] != ',':
+            return
+        films_count = json.loads(count_str[:-2])['count']
+        self._current_film = 0
+        with tqdm(ascii=True, total=films_count) as bar:
+            while True:
+                s = file_object.readline()
+                if s[-1] == ']':
+                    if len(s) != 1:
+                        raise Exception('Incorrect file')
+                    break
+                else:
+                    if s[-1] != '\n':
+                        raise Exception('Incorrect file')
+                    s = s[:-1]
+                    if s[-1] == ',':
+                        s = s[:-1]
+
+                film_data = json.loads(s)
+                self._current_film += 1
+                self._update_log(f"film: {self._current_film}/{films_count}; filmId: {film_data['data']['filmId']}")
+                yield film_data
+                bar.update()
+
+    def _connect_from_file(self, file_object):
+        try:
+            for film_data in self._get_film_data_from_file(file_object):
+                film_id = film_data['data']['filmId']
+                if film_id in self._films_ids:
+                    self._update_log(f'film {film_id} has been already gotten')
+                    continue
+
+                self._film_buffer.add(film_data)
+                self._films_ids.add(film_id)
+        except DBConnectionError as exc:
+            # does not take into account unexpected repetitions of films
+            if self._current_film == 0:
+                self._update_log('No successful inserts in database')
+            else:
+                successful_films = (self._current_film // _BUFFER_SIZE) * _BUFFER_SIZE
+                self._update_log(f'{successful_films} successful films in database')
+            raise exc from None
+        except (KeyboardInterrupt, Exception) as exc:
+            self._flush_buffer()
+            raise exc from None
+
+        self._flush_buffer()
+
+    def connect_from_file(self, filename: str, is_clear_database: bool = True, log_file_path: Union[str, None] = None):
+        if log_file_path is not None:
+            self._log_file = open(log_file_path, 'w')
+        else:
+            self._log_file = None
+
+        self._init_database(is_clear_database)
+
+        if filename is None:
+            self._close_log_file()
+            return
+        else:
+            file_object = open(filename, 'r', encoding='utf-8')
+
+        try:
+            self._connect_from_file(file_object)
+            self._close_log_file()
+            file_object.close()
+        except (DBConnectionError, KeyboardInterrupt, Exception):
+            self._close_log_file()
+            file_object.close()
+            raise
