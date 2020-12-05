@@ -18,7 +18,8 @@ def register_launch_arguments():
 if __name__ == '__main__':
     args = register_launch_arguments()
 
-    df = get_data_frame_from_mongodb(args.database, args.username, args.password, args.host, args.port, args.authenticationDatabase)
+    df = get_data_frame_from_mongodb(args.database, args.username, args.password, args.host, args.port,
+                                     args.authenticationDatabase)
 
     df = df.select('rating.ratingFilmCritics', 'review.reviewAllPositiveRatio')
     df = df.filter(df.ratingFilmCritics.isNotNull() & (df.ratingFilmCritics != '') & (df.reviewAllPositiveRatio != ''))
