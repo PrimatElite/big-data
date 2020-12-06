@@ -6,3 +6,5 @@ pyspark
 requests
 tqdm
 currencyconverter
+plotly
+pandas

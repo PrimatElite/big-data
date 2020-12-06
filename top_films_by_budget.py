@@ -1,5 +1,6 @@
 import argparse
 import re
+import plotly.express as px
 
 from pyspark.sql.functions import udf
 from pyspark.sql.types import FloatType, BooleanType, IntegerType, LongType
@@ -55,7 +56,7 @@ def filter_films(x):
 def lam(r):
     # if 'Мстители' in r[0]:
     #     print(*r)
-    return r[0], (r[1] + r[2] + r[3]) / r[4]
+    return r[0], r[4], (r[1] + r[2] + r[3]), (r[1] + r[2] + r[3]) - r[4]
 
 
 if __name__ == '__main__':
@@ -84,3 +85,8 @@ if __name__ == '__main__':
 
     films = df.rdd.map(lam).sortBy(lambda r: r[1], ascending=False).collect()
     print(*films, sep='\n')
+
+    fig = px.scatter([{"film": r[0], "budget": r[1], "gross": r[2], "diff": r[3]} for r in films], x="gross", y="diff",
+                     hover_data=['film', 'budget'], size='budget')
+    fig.show()
+
