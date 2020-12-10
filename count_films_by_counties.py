@@ -1,4 +1,5 @@
 import argparse
+import plotly.express as px
 
 from operator import add
 
@@ -21,4 +22,9 @@ if __name__ == '__main__':
 
     data_films = df.rdd.flatMap(lambda countries: countries[0]).map(lambda country: (country[0], 1)).reduceByKey(add) \
         .sortBy(lambda x: x[1], ascending=False).collect()
-    print(*data_films, sep='\n')
+    countries = list(map(lambda data_film: data_film[0], data_films))[0:100]
+    films = list(map(lambda data_film: data_film[1], data_films))[0:100]
+    #print(*data_films[0:100], sep='\n')
+    fig = px.bar(x=countries, y=films, labels={'x': 'Страна', 'y': 'Количество фильмов'})
+    fig.show()
+
