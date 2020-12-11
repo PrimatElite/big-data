@@ -4,4 +4,5 @@ psutil
 pymongo
 pyspark
 requests
+scipy
 tqdm

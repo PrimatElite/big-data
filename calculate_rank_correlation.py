@@ -3,7 +3,7 @@ import argparse
 from pyspark.sql.functions import udf
 from pyspark.sql.types import FloatType
 
-from pyspark.mllib.stat import Statistics
+from scipy.stats import spearmanr
 
 from utils import get_data_frame_from_mongodb, update_argument_parser_mongodb
 
@@ -28,10 +28,11 @@ if __name__ == '__main__':
     df = df.withColumn('ratingFilmCritics', convert_percent_to_float(df.ratingFilmCritics))
     df = df.withColumn('reviewAllPositiveRatio', convert_percent_to_float(df.reviewAllPositiveRatio))
 
-    rating_film_critics = df.rdd.map(lambda r: r[0])
-    review_all_positive_ratio = df.rdd.map(lambda r: r[1])
-    spearman_corr = Statistics.corr(rating_film_critics, review_all_positive_ratio, method='spearman')
+    records = df.collect()
 
-    print(*rating_film_critics.collect())
-    print(*review_all_positive_ratio.collect())
-    print(spearman_corr)
+    rating_film_critics = list(map(lambda r: r[0], records))
+    review_all_positive_ratio = list(map(lambda r: r[1], records))
+
+    correlation, pvalue = spearmanr(rating_film_critics, review_all_positive_ratio)
+
+    print(f'Spearman correlation coefficient = {correlation} with associated p-value = {pvalue}')
