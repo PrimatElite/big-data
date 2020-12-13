@@ -1,3 +1,4 @@
+kaleido
 lxml
 numpy
 psutil
