@@ -3,10 +3,9 @@ import argparse
 from pyspark.sql.functions import explode
 from pyspark.sql.types import IntegerType
 
-import matplotlib as mpl
-import matplotlib.pyplot as plt
-
 import pmdarima as pm
+
+import plotly.graph_objects as go
 
 from utils import get_data_frame_from_mongodb, update_argument_parser_mongodb
 
@@ -39,36 +38,55 @@ if __name__ == '__main__':
         genre_df = genre_df.groupBy(df.year).count().sort(df.year)
 
         records = genre_df.collect()
-
         years = list(map(lambda r: r[0], records))
         numbers = list(map(lambda r: r[1], records))
 
-        mng = plt.get_current_fig_manager()
-        size = mng.window.maxsize()
-
-        dpi = mpl.rcParams['figure.dpi']
-
         model = pm.auto_arima(y=numbers, max_order=None, stepwise=False)
+
         n_periods = 10
         fcs, conf_ints = model.predict(n_periods=n_periods, return_conf_int=True)
+
         fcs = list(fcs)
-        conf_ints = list(map(lambda i: list(i), conf_ints))
         fcs = [numbers[-1]] + fcs
+
+        conf_ints = list(map(lambda i: list(i), conf_ints))
+
         fcs_years = list(range(years[-1], years[-1] + n_periods + 1))
+
         lower_conf_ints = list(map(lambda i: i[0], conf_ints))
-        upper_conf_ints = list(map(lambda i: i[1], conf_ints))
         lower_conf_ints = [numbers[-1]] + lower_conf_ints
+
+        upper_conf_ints = list(map(lambda i: i[1], conf_ints))
         upper_conf_ints = [numbers[-1]] + upper_conf_ints
 
-        plt.figure(figsize=(size[0] / dpi, size[1] / dpi))
+        fig = go.Figure()
 
-        plt.plot(years, numbers)
-        plt.plot(fcs_years, fcs)
-        plt.fill_between(fcs_years, lower_conf_ints, upper_conf_ints, color='k', alpha=0.15)
-        plt.grid(True)
-        plt.title(genre)
-        plt.xlabel('year')
-        plt.ylabel('number')
+        fig.add_trace(go.Scatter(x=years,
+                                 y=numbers,
+                                 mode='lines+markers',
+                                 name='Количество фильмов'))
 
-        plt.savefig('pngs/' + genre + '.png')
-        plt.close()
+        fig.add_trace(go.Scatter(x=fcs_years,
+                                 y=fcs,
+                                 mode='lines+markers',
+                                 name='Прогнозируемое количество фильмов'))
+
+        fig.add_trace(go.Scatter(x=fcs_years,
+                                 y=lower_conf_ints,
+                                 fill=None,
+                                 mode='lines',
+                                 line_color='grey',
+                                 showlegend=False))
+
+        fig.add_trace(go.Scatter(x=fcs_years,
+                                 y=upper_conf_ints,
+                                 fill='tonexty',
+                                 mode='lines',
+                                 line_color='grey',
+                                 name='95%-ая доверительная область'))
+
+        fig.update_layout(title=f'Прогноз количества фильмов жанра {genre} на {n_periods} лет',
+                          xaxis_title='Год',
+                          yaxis_title='Количество фильмов')
+
+        fig.write_html('../results/htmls/films_number_by_genre_prediction/' + genre + '.html')
