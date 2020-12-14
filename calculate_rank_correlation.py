@@ -1,16 +1,19 @@
 import argparse
 
+from pyspark.sql import SparkSession
 from pyspark.sql.functions import udf
 from pyspark.sql.types import FloatType
 
-from scipy.stats import spearmanr
-
-from utils import get_data_frame_from_mongodb, update_argument_parser_mongodb
+from pyspark.mllib.stat import Statistics
 
 
 def register_launch_arguments():
     parser = argparse.ArgumentParser(description='Serve the rank correlation calculation')
-    update_argument_parser_mongodb(parser)
+    parser.add_argument('-u', '--username', help='username for authentication')
+    parser.add_argument('-p', '--password', help='password for authentication')
+    parser.add_argument('-d', '--database', help='database to connect to', required=True)
+    parser.add_argument('-host', '--host', help='server to connect to', default='localhost')
+    parser.add_argument('-port', '--port', help='port to connect to', default=27017)
 
     return parser.parse_args()
 
@@ -18,8 +21,12 @@ def register_launch_arguments():
 if __name__ == '__main__':
     args = register_launch_arguments()
 
-    df = get_data_frame_from_mongodb(args.database, args.username, args.password, args.host, args.port,
-                                     args.authenticationDatabase)
+    uri = 'mongodb://'
+    if args.username is not None and args.password is not None:
+        uri += f'{args.username}:{args.password}@'
+    uri += f'{args.host}:{args.port}/{args.database}'
+    spark = SparkSession.builder.config('spark.jars.packages', 'org.mongodb.spark:mongo-spark-connector_2.12:3.0.0').getOrCreate()
+    df = spark.read.format('com.mongodb.spark.sql.DefaultSource').options(uri=uri, collection='films').load()
 
     df = df.select('rating.ratingFilmCritics', 'review.reviewAllPositiveRatio')
     df = df.filter(df.ratingFilmCritics.isNotNull() & (df.ratingFilmCritics != '') & (df.reviewAllPositiveRatio != ''))
@@ -28,11 +35,8 @@ if __name__ == '__main__':
     df = df.withColumn('ratingFilmCritics', convert_percent_to_float(df.ratingFilmCritics))
     df = df.withColumn('reviewAllPositiveRatio', convert_percent_to_float(df.reviewAllPositiveRatio))
 
-    records = df.collect()
+    rating_film_critics = df.rdd.map(lambda r: r[0])
+    review_all_positive_ratio = df.rdd.map(lambda r: r[1])
+    spearman_corr = Statistics.corr(rating_film_critics, review_all_positive_ratio, method='spearman')
 
-    rating_film_critics = list(map(lambda r: r[0], records))
-    review_all_positive_ratio = list(map(lambda r: r[1], records))
-
-    correlation, pvalue = spearmanr(rating_film_critics, review_all_positive_ratio)
-
-    print(f'Spearman correlation coefficient = {correlation} with associated p-value = {pvalue}')
+    print('Spearman\'s rank correlation coefficient between ratingFilmCritics and reviewAllPositiveRatio =', spearman_corr)
