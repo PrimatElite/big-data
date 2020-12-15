@@ -131,3 +131,4 @@ dmypy.json
 .idea
 connect.log
 films.json
+run.sh

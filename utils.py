@@ -28,7 +28,8 @@ def get_uri_mongodb(database: str, username: Union[str, None] = None, password: 
 
 def get_data_frame_from_mongodb(database: str, username: Union[str, None] = None, password: Union[str, None] = None,
                                 host: str = 'localhost', port: Union[int, str] = 27017,
-                                authentication_database: Union[str, None] = None):
+                                authentication_database: Union[str, None] = None,
+                                update_schema: Union[dict, None] = None):
     uri = get_uri_mongodb(database, username, password, host, port, authentication_database)
     spark = SparkSession \
         .builder \
@@ -42,4 +43,12 @@ def get_data_frame_from_mongodb(database: str, username: Union[str, None] = None
         .config('spark.network.timeout', '10m') \
         .config('spark.rpc.lookupTimeout', '10m') \
         .getOrCreate()
-    return spark.read.format('com.mongodb.spark.sql.DefaultSource').options(uri=uri, collection='films').load()
+    df = spark.read.format('com.mongodb.spark.sql.DefaultSource').options(uri=uri, collection='films').load()
+    if isinstance(update_schema, dict):
+        for field, new_type in update_schema.items():
+            subcommand = ''.join(map(lambda subfield: f"['{subfield}'].dataType", field.split('.')))
+            command = f'df.schema{subcommand} = new_type'
+            exec(command)
+        df = spark.read.format('com.mongodb.spark.sql.DefaultSource').options(uri=uri, collection='films') \
+            .load(schema=df.schema)
+    return df
