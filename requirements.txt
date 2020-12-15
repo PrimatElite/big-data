@@ -1,10 +1,10 @@
+currencyconverter
 lxml
 numpy
+pandas
+plotly
 psutil
 pymongo
 pyspark
 requests
 tqdm
-currencyconverter
-plotly
-pandas
