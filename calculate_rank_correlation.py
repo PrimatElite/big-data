@@ -3,7 +3,9 @@ import argparse
 from pyspark.sql.functions import udf
 from pyspark.sql.types import FloatType
 
-from scipy.stats import linregress, rankdata, pearsonr
+from pyspark.mllib.stat import Statistics
+
+from scipy.stats import linregress, rankdata
 
 import plotly.graph_objects as go
 
@@ -32,6 +34,10 @@ if __name__ == '__main__':
     df = df.withColumn('ratingFilmCritics', convert_percent_to_float(df.ratingFilmCritics))
     df = df.withColumn('reviewAllPositiveRatio', convert_percent_to_float(df.reviewAllPositiveRatio))
 
+    rating_film_critics = df.rdd.map(lambda r: r[0])
+    review_all_positive_ratio = df.rdd.map(lambda r: r[1])
+    r = Statistics.corr(rating_film_critics, review_all_positive_ratio, method='spearman')
+
     records = df.collect()
     rating_film_critics = list(map(lambda r: r[0], records))
     review_all_positive_ratio = list(map(lambda r: r[1], records))
@@ -59,16 +65,15 @@ if __name__ == '__main__':
                              line={'color': 'black', 'dash': 'dot'},
                              name='Эллипс 95%-ой доверительной области'))
 
-    r, pvalue = pearsonr(rating_film_critics_ranks, review_all_positive_ratio_ranks)
     r = float(format(r, '.2f'))
 
     fig.update_layout(width=1000,
                       height=1000,
-                      title=f'Коэффициент корреляции Спирмена = {r} с p-значением = {pvalue}',
+                      title=f'Коэффициент корреляции Спирмена = {r}',
                       xaxis_title='Ранг рейтинга кинокритиков в мире',
                       yaxis_title='Ранг процента рецензий')
 
     fig.update_yaxes(scaleanchor='x',
                      scaleratio=1)
 
-    fig.write_html('../results/htmls/rank_correlation.html')
+    fig.write_html('visualizations/rank_correlation.html')
