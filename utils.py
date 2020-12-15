@@ -20,8 +20,9 @@ def get_uri_mongodb(database: str, username: Union[str, None] = None, password: 
     if username is not None and password is not None:
         uri += f'{username}:{password}@'
     uri += f'{host}:{port}/{database}'
+    uri += '?socketTimeoutMS=600000&connectTimeoutMS=600000&maxIdleTimeMS=600000'
     if authentication_database is not None:
-        uri += f'?authSource={authentication_database}'
+        uri += f'&authSource={authentication_database}'
     return uri
 
 
