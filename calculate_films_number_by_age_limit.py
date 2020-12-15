@@ -50,4 +50,4 @@ if __name__ == '__main__':
                       xaxis_title='Год',
                       yaxis_title='Количество фильмов')
 
-    fig.write_html('../results/htmls/films_number_by_age_limit_calculation.html')
+    fig.write_html('visualizations/films_number_by_age_limit_calculation.html')
