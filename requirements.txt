@@ -3,6 +3,7 @@ lxml
 numpy
 pandas
 plotly
+pmdarima
 psutil
 pymongo
 pyspark
