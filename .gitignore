@@ -8,7 +8,6 @@ __pycache__/
 
 # Distribution / packaging
 .Python
-build/
 develop-eggs/
 dist/
 downloads/
@@ -132,7 +131,7 @@ dmypy.json
 connect.log
 films.json
 run.sh
-report/build/*
-!report/build/report.pdf
+**/build/*
+!**/build/report.pdf
 
 
