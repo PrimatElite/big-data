@@ -3,7 +3,7 @@ import re
 import plotly.express as px
 
 from pyspark.sql.functions import udf
-from pyspark.sql.types import FloatType, BooleanType, IntegerType, LongType
+from pyspark.sql.types import FloatType, BooleanType, LongType
 
 from currency_converter import CurrencyConverter
 from utils import get_data_frame_from_mongodb, update_argument_parser_mongodb
@@ -54,9 +54,7 @@ def filter_films(x):
 
 
 def lam(r):
-    # if 'Мстители' in r[0]:
-    #     print(*r)
-    return r[0], r[4], (r[1] + r[2] + r[3]), (r[1] + r[2] + r[3]) - r[4]
+    return f'{r[0]} ({r[5]})', r[4], (r[1] + r[2] + r[3]), (r[1] + r[2] + r[3]) - r[4]
 
 
 if __name__ == '__main__':
@@ -67,13 +65,11 @@ if __name__ == '__main__':
                                                                                  'budget.grossRu': LongType(),
                                                                                  'budget.grossUsa': LongType()})
 
-    df = df.select('data.nameRu', 'budget.grossWorld', 'budget.grossRu', 'budget.grossUsa', 'budget.budget')
+    df = df.select('data.nameRu', 'budget.grossWorld', 'budget.grossRu', 'budget.grossUsa', 'budget.budget',
+                   'data.filmId')
     filter_budget_currency_udf = udf(filter_budget_currency, BooleanType())
     df = df.filter((df.grossWorld.isNotNull() | df.grossUsa.isNotNull() | df.grossRu.isNotNull()) &
                    df.budget.isNotNull() & filter_budget_currency_udf(df.budget))
-
-    # filter_name_udf = udf(filter_films, BooleanType())
-    # df.filter(filter_name_udf(df.nameRu)).show()
 
     convert_gross_to_int = udf(gross_to_int, LongType())
     df = df.withColumn('grossWorld', convert_gross_to_int(df.grossWorld))
@@ -83,10 +79,10 @@ if __name__ == '__main__':
     convert_budget_to_float = udf(parse_budget_string, FloatType())
     df = df.withColumn('budget', convert_budget_to_float(df.budget))
 
-    films = df.rdd.map(lam).sortBy(lambda r: r[1], ascending=False).collect()
+    films = df.rdd.map(lam).sortBy(lambda r: r[3], ascending=False).collect()
+    films_arr = [{"film": r[0], "budget": r[1], "gross": r[2], "diff": r[3]} for r in films]
     print(*films, sep='\n')
 
-    fig = px.scatter([{"film": r[0], "budget": r[1], "gross": r[2], "diff": r[3]} for r in films], x="gross", y="diff",
-                     hover_data=['film', 'budget'], size='budget')
+    fig = px.bar(films_arr, x="film", y="diff")
     fig.show()
 
