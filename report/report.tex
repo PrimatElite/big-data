@@ -1,0 +1,85 @@
+\documentclass{beamer}
+\setbeamertemplate{caption}[numbered]
+
+\usetheme{Madrid}
+
+% locale settings 
+\usepackage[T2A]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english,russian]{babel}
+
+% graphics settings
+\usepackage[compatibility=false]{caption}
+\usepackage{subcaption}
+\usepackage{wrapfig}
+\usepackage{graphics, graphicx}
+\graphicspath{{./images/}}
+
+% hyperlinks settings
+\usepackage{hyperref}
+\hypersetup{unicode=true}
+
+\title{Анализ данных кинопоиска}
+\author{Курносов Дмитрий, Лансков Никита, Нахатович Михаил, Смольский Максим }
+\date{18 декабря, 2020}
+\subtitle{3640102/00201}
+
+\begin{document}
+	\frame {
+		\titlepage
+	}
+	\frame {
+		\titlepage{Кратко о кинопоиске}	
+	}
+	\frame {
+		\frametitle{Архитектура проекта}
+		\begin{figure}
+			\includegraphics[width=\linewidth]{architecture}
+			\label{fig:1}
+		\end{figure}
+	}
+	\frame {
+		\frametitle{Получение данных}
+	}	
+	\frame {
+		\frametitle{Структура данных}
+	}
+	\frame {
+		\frametitle{Статистические задачи}
+
+		\begin{itemize}
+			\item Корелляция оценок зрителей и критиков
+			\item Распределение фильмов по странам
+			\item Распределение фильмов по странам и годам
+			\item Распределение фильмов по возрастным ограничениям и годам
+			\item Средний рейтинг российских фильмов по годам			
+		\end{itemize}
+	}
+	\frame {
+		\frametitle{Корелляция оценок зрителей и критиков}
+	}
+	\frame {
+		\frametitle{Распределение фильмов по странам}
+	}
+	\frame {
+		\frametitle{Распределение фильмов по странам и годам}
+	}
+	\frame {
+		\frametitle{Распределение фильмов по возрастным ограничениям и годам}
+	}	
+	\frame {
+		\frametitle{Средний рейтинг российских фильмов по годам}
+	}	
+
+	\frame {
+		\frametitle{Исследовательские задачи}
+		
+		\begin{itemize}
+			\item Прогноз количества фильмов по жанрам на 10 лет
+		\end{itemize}
+	}
+	\frame {
+		\frametitle{Прогноз количества фильмов по жанрам на 10 лет}
+	}	
+
+\end{document}

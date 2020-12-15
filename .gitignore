@@ -132,3 +132,6 @@ dmypy.json
 connect.log
 films.json
 run.sh
+**/build/*
+!**/build/report.pdf
+
