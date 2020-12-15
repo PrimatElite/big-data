@@ -20,15 +20,35 @@ def get_uri_mongodb(database: str, username: Union[str, None] = None, password: 
     if username is not None and password is not None:
         uri += f'{username}:{password}@'
     uri += f'{host}:{port}/{database}'
+    uri += '?socketTimeoutMS=600000&connectTimeoutMS=600000&maxIdleTimeMS=600000'
     if authentication_database is not None:
-        uri += f'?authSource={authentication_database}'
+        uri += f'&authSource={authentication_database}'
     return uri
 
 
 def get_data_frame_from_mongodb(database: str, username: Union[str, None] = None, password: Union[str, None] = None,
                                 host: str = 'localhost', port: Union[int, str] = 27017,
-                                authentication_database: Union[str, None] = None):
+                                authentication_database: Union[str, None] = None,
+                                update_schema: Union[dict, None] = None):
     uri = get_uri_mongodb(database, username, password, host, port, authentication_database)
-    spark = SparkSession.builder.config('spark.jars.packages',
-                                        'org.mongodb.spark:mongo-spark-connector_2.12:3.0.0').getOrCreate()
-    return spark.read.format('com.mongodb.spark.sql.DefaultSource').options(uri=uri, collection='films').load()
+    spark = SparkSession \
+        .builder \
+        .master("local[*]") \
+        .config('spark.jars.packages', 'org.mongodb.spark:mongo-spark-connector_2.12:3.0.0') \
+        .config('spark.executor.memory', '10g') \
+        .config('spark.driver.memory', '10g') \
+        .config('spark.memory.offHeap.enabled', True) \
+        .config('spark.memory.offHeap.size', '10g') \
+        .config('spark.executor.heartbeatInterval', '1m') \
+        .config('spark.network.timeout', '10m') \
+        .config('spark.rpc.lookupTimeout', '10m') \
+        .getOrCreate()
+    df = spark.read.format('com.mongodb.spark.sql.DefaultSource').options(uri=uri, collection='films').load()
+    if isinstance(update_schema, dict):
+        for field, new_type in update_schema.items():
+            subcommand = ''.join(map(lambda subfield: f"['{subfield}'].dataType", field.split('.')))
+            command = f'df.schema{subcommand} = new_type'
+            exec(command)
+        df = spark.read.format('com.mongodb.spark.sql.DefaultSource').options(uri=uri, collection='films') \
+            .load(schema=df.schema)
+    return df
