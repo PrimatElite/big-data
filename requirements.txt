@@ -1,5 +1,7 @@
+currencyconverter
 lxml
 numpy
+pandas
 plotly
 psutil
 pymongo
