@@ -64,7 +64,7 @@ def visualize(films_rating):
     fig.update_layout(title_text='Средний рейтинг российских фильмов')
     fig.update_xaxes(title_text='Год')
     fig.update_yaxes(title_text='Средний рейтинг')
-    fig.write_html('visualizations/count_russia_rating_by_year.html')
+    fig.write_html('visualizations/russia_rating_by_year.html')
 
 
 if __name__ == '__main__':
