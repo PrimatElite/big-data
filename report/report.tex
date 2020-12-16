@@ -19,11 +19,10 @@
 \usepackage{hyperref}
 \hypersetup{unicode=true}
 
-\usepackage{animate}
+%\usepackage{animate}
 
 \title{Анализ данных кинопоиска}
-\author[ПриМат]{Курносов Дмитрий\inst{1}, Лансков Никита\inst{2},
-Нахатович Михаил\inst{3}, Смольский Максим\inst{4}}
+\author[ПриМат]{Курносов Дмитрий, Лансков Никита,Нахатович Михаил, Смольский Максим}
 \institute[Политех]
 {
 	Институт прикладной математики и механики, СПБПУ
@@ -49,6 +48,9 @@
 	}
 	\frame {
 		\frametitle{Получение данных}
+		\begin{figure}
+			\includegraphics[width=\linewidth]{gettingData}
+		\end{figure}
 	}	
 	\frame {
 		\frametitle{Структура данных}
@@ -57,9 +59,9 @@
 		\frametitle{Статистические задачи}
 
 		\begin{itemize}
-			\item Корелляция оценок зрителей и критиков
+			\item \textbf{Корелляция оценок зрителей и критиков}
 			\item Распределение фильмов по странам
-			\item Распределение фильмов по прибыльности			
+			\item \textbf{Распределение фильмов по прибыльности}
 			\item Распределение фильмов по странам и годам
 			\item Распределение фильмов по возрастным ограничениям и годам
 			\item Средний рейтинг российских фильмов по годам			
@@ -118,7 +120,7 @@
 	}
 	\frame {
 		\frametitle{Прогноз количества фильмов по жанрам на 10 лет}
-		\animategraphics[loop,controls,width=\linewidth]{0.2}{ganre_predict/img-}{0}{37}
+		%\animategraphics[loop,controls,width=\linewidth]{0.2}{ganre_predict/img-}{0}{37}
 	}	
 
 \end{document}
