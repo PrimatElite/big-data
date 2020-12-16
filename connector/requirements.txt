@@ -1,7 +1,0 @@
-lxml
-numpy
-psutil
-pymongo
-pyspark
-requests
-tqdm

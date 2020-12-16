@@ -1,0 +1,126 @@
+\documentclass{beamer}
+\setbeamertemplate{caption}[numbered]
+
+\usetheme{Madrid}
+
+% locale settings 
+\usepackage[T2A]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english,russian]{babel}
+
+% graphics settings
+\usepackage[compatibility=false]{caption}
+\usepackage{subcaption}
+\usepackage{wrapfig}
+\usepackage{graphics, graphicx}
+\graphicspath{{./images/}}
+
+% hyperlinks settings
+\usepackage{hyperref}
+\hypersetup{unicode=true}
+
+%\usepackage{animate}
+
+\title{Анализ данных кинопоиска}
+\author[ПриМат]{Курносов Дмитрий, Лансков Никита,Нахатович Михаил, Смольский Максим}
+\institute[Политех]
+{
+	Институт прикладной математики и механики, СПБПУ
+}
+\date{18 декабря, 2020}
+
+\begin{document}
+	\frame {
+		\titlepage
+	}
+	\frame {
+		\frametitle{Кратко о кинопоиске}
+		
+		КиноПоиск - крупнейший русскоязычный интернет-сервис о кино. Содержит
+		информацию о различных фильмах, которой мы воспользовались для решения 
+		поставленных статистических и исследовательских задач.
+	}
+	\frame {
+		\frametitle{Архитектура проекта}
+		\begin{figure}
+			\includegraphics[width=\linewidth]{architecture}
+		\end{figure}
+	}
+	\frame {
+		\frametitle{Получение данных}
+		\begin{figure}
+			\includegraphics[width=\linewidth]{gettingData}
+		\end{figure}
+	}	
+	\frame {
+		\frametitle{Структура данных}
+	}
+	\frame {
+		\frametitle{Статистические задачи}
+
+		\begin{itemize}
+			\item \textbf{Корелляция оценок зрителей и критиков}
+			\item Распределение фильмов по странам
+			\item \textbf{Распределение фильмов по прибыльности}
+			\item Распределение фильмов по странам и годам
+			\item \textbf{Распределение фильмов по возрастным ограничениям и годам}
+			\item Средний рейтинг российских фильмов по годам			
+		\end{itemize}
+	}
+	\frame {
+		\frametitle{Корелляция оценок зрителей и критиков}
+		\begin{figure}
+ 			\centering
+			\includegraphics[width=0.6\linewidth]{corr/spirmen}
+		\end{figure}
+	}
+	\frame {
+		\frametitle{Распределение фильмов по странам}
+	}
+	\frame {
+		\frametitle{Распределение фильмов по прибыльности (1)}
+		\begin{figure}
+			\includegraphics[width=\linewidth]{profit/best}
+			\caption{Самые прибыльные фильмы}
+		\end{figure}
+	}
+	\frame {
+		\frametitle{Распределение фильмов по прибыльности (2)}
+		\begin{figure}
+			\includegraphics[width=\linewidth]{profit/zero}
+			\caption{Фильмы с около нулевой прибылью}
+		\end{figure}
+	}
+	\frame {
+		\frametitle{Распределение фильмов по прибыльности (3)}
+		\begin{figure}
+			\includegraphics[width=\linewidth]{profit/worst}
+			\caption{Самые неприбыльные фильмы}
+		\end{figure}
+	}
+	\frame {
+		\frametitle{Распределение фильмов по странам и годам}
+	}
+	\frame {
+		\frametitle{Распределение фильмов по возрастным ограничениям и годам}
+		\begin{figure}
+			\includegraphics[width=\linewidth]{years_restrict/1}
+		\end{figure}
+	}	
+	\frame {
+		\frametitle{Средний рейтинг российских фильмов по годам}
+	}	
+
+	\frame {
+		\frametitle{Исследовательские задачи}
+		
+		\begin{itemize}
+			\item Прогноз количества фильмов по жанрам на 10 лет
+		\end{itemize}
+	}
+	\frame {
+		\frametitle{Прогноз количества фильмов по жанрам на 10 лет}
+		%\animategraphics[loop,controls,width=\linewidth]{0.2}{ganre_predict/img-}{0}{37}
+	}	
+
+\end{document}

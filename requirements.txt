@@ -1,0 +1,12 @@
+currencyconverter
+lxml
+numpy
+pandas
+plotly
+pmdarima
+psutil
+pymongo
+pyspark
+requests
+scipy
+tqdm
