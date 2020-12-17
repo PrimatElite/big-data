@@ -19,8 +19,6 @@
 \usepackage{hyperref}
 \hypersetup{unicode=true}
 
-%\usepackage{animate}
-
 \title{Анализ данных кинопоиска}
 \author[ПриМат]{Курносов Дмитрий, Лансков Никита,Нахатович Михаил, Смольский Максим}
 \institute[Политех]
@@ -54,17 +52,21 @@
 	}	
 	\frame {
 		\frametitle{Структура данных}
+		\begin{figure}
+			\includegraphics[width=\linewidth]{dataStructure}
+		\end{figure}
 	}
 	\frame {
 		\frametitle{Статистические задачи}
 
 		\begin{itemize}
 			\item \textbf{Корелляция оценок зрителей и критиков}
-			\item Распределение фильмов по странам
+			\item \textbf{Корелляция рейтинга КиноПоиска и рейтинга IMDb}
+			\item \textbf{Распределение фильмов по странам}
 			\item \textbf{Распределение фильмов по прибыльности}
-			\item Распределение фильмов по странам и годам
+			\item Распределение фильмов между странами по годам
 			\item \textbf{Распределение фильмов по возрастным ограничениям и годам}
-			\item Средний рейтинг российских фильмов по годам			
+			\item \textbf{Средний рейтинг российских фильмов по годам}
 		\end{itemize}
 	}
 	\frame {
@@ -76,30 +78,34 @@
 	}
 	\frame {
 		\frametitle{Распределение фильмов по странам}
+		\begin{figure}
+ 			\centering
+			\includegraphics[width=\linewidth]{films_by_country/2}
+		\end{figure}
 	}
 	\frame {
-		\frametitle{Распределение фильмов по прибыльности (1)}
+		\frametitle{Распределение фильмов по прибыльности (1/3)}
 		\begin{figure}
 			\includegraphics[width=\linewidth]{profit/best}
 			\caption{Самые прибыльные фильмы}
 		\end{figure}
 	}
 	\frame {
-		\frametitle{Распределение фильмов по прибыльности (2)}
+		\frametitle{Распределение фильмов по прибыльности (2/3)}
 		\begin{figure}
 			\includegraphics[width=\linewidth]{profit/zero}
 			\caption{Фильмы с около нулевой прибылью}
 		\end{figure}
 	}
 	\frame {
-		\frametitle{Распределение фильмов по прибыльности (3)}
+		\frametitle{Распределение фильмов по прибыльности (3/3)}
 		\begin{figure}
 			\includegraphics[width=\linewidth]{profit/worst}
 			\caption{Самые неприбыльные фильмы}
 		\end{figure}
 	}
 	\frame {
-		\frametitle{Распределение фильмов по странам и годам}
+		\frametitle{Распределение фильмов между странами по годам}
 	}
 	\frame {
 		\frametitle{Распределение фильмов по возрастным ограничениям и годам}
@@ -109,6 +115,9 @@
 	}	
 	\frame {
 		\frametitle{Средний рейтинг российских фильмов по годам}
+		\begin{figure}
+			\includegraphics[width=\linewidth]{russia_rating/1}
+		\end{figure}
 	}	
 
 	\frame {
@@ -119,8 +128,28 @@
 		\end{itemize}
 	}
 	\frame {
-		\frametitle{Прогноз количества фильмов по жанрам на 10 лет}
-		%\animategraphics[loop,controls,width=\linewidth]{0.2}{ganre_predict/img-}{0}{37}
+		\frametitle{Прогноз количества фильмов по жанрам на 10 лет (1/4)}
+		\begin{figure}
+			\includegraphics[width=\linewidth]{genre_predict/cartoons}
+		\end{figure}
+	}	
+	\frame {
+		\frametitle{Прогноз количества фильмов по жанрам на 10 лет (2/4)}
+		\begin{figure}
+			\includegraphics[width=\linewidth]{genre_predict/comedy}
+		\end{figure}
+	}	
+	\frame {
+		\frametitle{Прогноз количества фильмов по жанрам на 10 лет (3/4)}
+		\begin{figure}
+			\includegraphics[width=\linewidth]{genre_predict/documental}
+		\end{figure}
+	}	
+	\frame {
+		\frametitle{Прогноз количества фильмов по жанрам на 10 лет (4/4)}
+		\begin{figure}
+			\includegraphics[width=\linewidth]{genre_predict/fantasy}
+		\end{figure}
 	}	
 
 \end{document}
