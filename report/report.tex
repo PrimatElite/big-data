@@ -61,7 +61,7 @@
 
 		\begin{itemize}
 			\item \textbf{Корелляция оценок зрителей и критиков}
-			\item Корелляция рейтинга КиноПоиска и рейтинга IMDb
+			\item \textbf{Корелляция рейтинга КиноПоиска и рейтинга IMDb}
 			\item \textbf{Распределение фильмов по странам}
 			\item \textbf{Распределение фильмов по прибыльности}
 			\item \textbf{Распределение фильмов между странами по годам}
@@ -71,13 +71,22 @@
 	}
 	\frame {
 		\frametitle{Корелляция оценок зрителей и критиков}
+		\begin{center}
+			Коэффициент корреляции Спирмена = $0.33$
+		\end{center}
 		\begin{figure}
- 			\centering
-			\includegraphics[width=0.6\linewidth]{corr/spirmen}
+			\includegraphics[width=0.65\linewidth]{corr/spirmen}
 		\end{figure}
+		\hfill
 	}
 	\frame {
 		\frametitle{Корелляция рейтинга КиноПоиска и рейтинга IMDb}
+		\begin{center}
+			Коэффициент корреляции Спирмена = $0.75$
+		\end{center}
+		\begin{figure}
+			\includegraphics[width=0.65\linewidth]{rating_corr/1}
+		\end{figure}
 	}
 	\frame {
 		\frametitle{Распределение фильмов по странам}
@@ -138,24 +147,28 @@
 	}
 	\frame {
 		\frametitle{Прогноз количества фильмов по жанрам на 10 лет (1/4)}
+		Мультфильмы
 		\begin{figure}
 			\includegraphics[width=\linewidth]{genre_predict/cartoons}
 		\end{figure}
 	}	
 	\frame {
 		\frametitle{Прогноз количества фильмов по жанрам на 10 лет (2/4)}
+		Комедии
 		\begin{figure}
 			\includegraphics[width=\linewidth]{genre_predict/comedy}
 		\end{figure}
 	}	
 	\frame {
 		\frametitle{Прогноз количества фильмов по жанрам на 10 лет (3/4)}
+		Документальные фильмы
 		\begin{figure}
 			\includegraphics[width=\linewidth]{genre_predict/documental}
 		\end{figure}
 	}	
 	\frame {
 		\frametitle{Прогноз количества фильмов по жанрам на 10 лет (4/4)}
+		Фэнтези
 		\begin{figure}
 			\includegraphics[width=\linewidth]{genre_predict/fantasy}
 		\end{figure}
