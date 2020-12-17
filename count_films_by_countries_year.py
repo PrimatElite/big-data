@@ -49,7 +49,7 @@ def visualize(films_count):
             count += tuple([sum(tuple(zip(*(films_count[year][top:])))[1])])
         fig.add_trace(go.Pie(labels=countries, values=count, name=str(year), hole=0.3), row, column)
 
-    fig.update_traces(textposition='outside', textinfo='percent+label')
+    fig.update_traces(textposition='outside', textinfo='label+value')
     fig.update_layout(title_text='Распределение фильмов между странами по годам', height=rows_count * 500)
     fig.write_html('visualizations/films_by_countries_year.html')
 
