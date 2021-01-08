@@ -85,7 +85,9 @@ if __name__ == '__main__':
                                  line_color='grey',
                                  name='95%-ая доверительная область'))
 
-        fig.update_layout(title=f'Прогноз количества фильмов жанра {genre} на {n_periods} лет',
+        fig.update_layout(legend_x=0.01,
+                          legend_y=0.99,
+                          title=f'Прогноз количества фильмов жанра {genre} на {n_periods} лет',
                           xaxis_title='Год',
                           yaxis_title='Количество фильмов')
 

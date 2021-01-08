@@ -46,7 +46,9 @@ if __name__ == '__main__':
                                  mode='lines+markers',
                                  name=f'Количество фильмов с возрастным ограничением в {age_limit} лет'))
 
-    fig.update_layout(title='Количество фильмов с возрастными ограничениями',
+    fig.update_layout(legend_x=0.01,
+                      legend_y=0.99,
+                      title='Количество фильмов с возрастными ограничениями',
                       xaxis_title='Год',
                       yaxis_title='Количество фильмов')
 
