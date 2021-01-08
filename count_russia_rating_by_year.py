@@ -61,7 +61,8 @@ def visualize(films_rating):
                          % country
         fig.add_trace(go.Scatter(x=year, y=rating, name=country, mode='lines+markers', hovertemplate=hover_template,
                                  marker_size=count, marker=dict(sizemode='area', line_width=2)))
-    fig.update_layout(title_text='Средний рейтинг российских фильмов')
+    fig.update_layout(title_text='Средний рейтинг российских фильмов',
+                      legend=dict(yanchor="top", xanchor="left", x=0.01, y=0.99))
     fig.update_xaxes(title_text='Год')
     fig.update_yaxes(title_text='Средний рейтинг')
     fig.write_html('visualizations/russia_rating_by_year.html')
