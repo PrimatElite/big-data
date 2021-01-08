@@ -2,7 +2,7 @@
 \IEEEoverridecommandlockouts
 
 
-\usepackage[T2A]{fontenc}
+%\usepackage[T2A,T1]{fontenc}
 \usepackage[utf8]{inputenc}
 \usepackage[english,russian]{babel}
 \usepackage{cite}
@@ -11,43 +11,26 @@
 \usepackage{graphicx}
 \usepackage{textcomp}
 \usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{import}
 \def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
     T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
-\begin{document}
 
+\DeclareRobustCommand{\ttfamily}{\fontencoding{T1}\fontfamily{lmtt}\selectfont}
+\DeclareRobustCommand\sectt[1]{{\fontsize{13}{12}\bfseries\ttfamily#1}}
+
+\begin{document}
 
 \title{Анализ данных с КиноПоиска}
 
-\author{\IEEEauthorblockN{Дмитрий Курносов}
-\IEEEauthorblockA{\textit{Институт прикладной математики и механики} \\
-\textit{Санкт-Петербургский политехнический университет Петра Великого}\\
-Санкт-Петербург, Россия \\
-dima2202888@yandex.ru}
-\and
-\IEEEauthorblockN{Никита Лансков}
-\IEEEauthorblockA{\textit{Институт прикладной математики и механики} \\
-\textit{Санкт-Петербургский политехнический университет Петра Великого}\\
-Санкт-Петербург, Россия \\
-nl516@yandex.ru}
-\and
-\IEEEauthorblockN{Михаил Нахатович}
-\IEEEauthorblockA{\textit{Институт прикладной математики и механики} \\
-\textit{Санкт-Петербургский политехнический университет Петра Великого}\\
-Санкт-Петербург, Россия \\
-0000-0002-6279-1130}
-\and
-\IEEEauthorblockN{Максим Смольский}
-\IEEEauthorblockA{\textit{Институт прикладной математики и механики} \\
-\textit{Санкт-Петербургский политехнический университет Петра Великого}\\
-Санкт-Петербург, Россия \\
-mithridatus@mail.ru}
+\author{\IEEEauthorblockN{Дмитрий Курносов\IEEEauthorrefmark{1}, Никита Лансков\IEEEauthorrefmark{1}, Михаил Нахатович\IEEEauthorrefmark{1}$^{[0000-0002-6279-1130]}$ и Максим Смольский\IEEEauthorrefmark{1}}
+\IEEEauthorblockA{\IEEEauthorrefmark{1}Институт прикладной математики и механики\\
+Санкт-Петербургский политехнический университет Петра Великого, Санкт-Петербург, Россия}
 }
 
 \maketitle
-
 \begin{abstract}
-Эта статья описывает процесс анализа данных с сайта кинопоиск. В рамках статьи рассмотрены процессы получения данных, хранения данных, а также последующей обработки данных для решения 
-поставленных задач.
+\textbf{Эта статья описывает процесс анализа данных с сайта кинопоиск. В рамках статьи рассмотрены процессы получения данных, хранения данных, а также последующей обработки данных для решения поставленных задач.}
 \end{abstract}
 
 %\begin{IEEEkeywords}
@@ -89,6 +72,9 @@ mithridatus@mail.ru}
 \subsection{Корреляция рейтинга КиноПоиска и рейтинга IMDb}
 \subsection{Распределение фильмов по странам}
 \subsection{Распределение фильмов по прибыльности}
+
+\import{tasks/}{films_by_budget.tex}
+
 \subsection{Распределение фильмов между странами по годам}
 \subsection{Распределение фильмов по возрастным ограничениям и годам}
 \subsection{Средний рейтинг российских фильмов по годам}
@@ -98,6 +84,12 @@ mithridatus@mail.ru}
 
 \section{Дальнейшие исследования}
 
-\section{Заключение}
+Во-первых, мы хотим построить модель, с помощью которой можно предсказывать рейтинг фильма по его создателям, например, актёрам, режиссёрам и сценаристам, а также другим данным, таким как жанры или страны производители. Для этой задачи нужно понять, как эффективно связать категориальные признаки с итоговым числовым значением. Во-вторых, мы хотим выкачать сериалы и выполнить статистические задачи для них.
+
+\begin{thebibliography}{00}
+\bibitem{b1} Сайт «КиноПоиск». [Электронный ресурс]. Режим доступа: \url{https://www.kinopoisk.ru/}
+\bibitem{b2} Сайт «MongoDB». [Электронный ресурс]. Режим доступа: \url{https://www.mongodb.com/}
+
+\end{thebibliography}
 
 \end{document}
