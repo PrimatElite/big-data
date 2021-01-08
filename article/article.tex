@@ -1,23 +1,28 @@
-\documentclass[conference]{IEEEtran}
+\documentclass[9pt,conference]{IEEEtran}
 \IEEEoverridecommandlockouts
 
-
-%\usepackage[T2A,T1]{fontenc}
+\usepackage[T2A,T1]{fontenc}
 \usepackage[utf8]{inputenc}
 \usepackage[english,russian]{babel}
+\usepackage{hyperref}
+\usepackage{import}
+
 \usepackage{cite}
 \usepackage{amsmath,amssymb,amsfonts}
 \usepackage{algorithmic}
 \usepackage{graphicx}
 \usepackage{textcomp}
 \usepackage{xcolor}
-\usepackage{hyperref}
-\usepackage{import}
 \def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
     T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
 
-\DeclareRobustCommand{\ttfamily}{\fontencoding{T1}\fontfamily{lmtt}\selectfont}
-\DeclareRobustCommand\sectt[1]{{\fontsize{13}{12}\bfseries\ttfamily#1}}
+% translate keywords from english to russian
+\def\IEEEkeywordsname{Ключевые понятия}
+
+% redefine modern cyrillic fonts
+\renewcommand{\sfdefault}{cmss}
+\renewcommand{\rmdefault}{cmr}
+\renewcommand{\ttdefault}{cmt}
 
 \begin{document}
 
@@ -33,9 +38,9 @@
 \textbf{Эта статья описывает процесс анализа данных с сайта кинопоиск. В рамках статьи рассмотрены процессы получения данных, хранения данных, а также последующей обработки данных для решения поставленных задач.}
 \end{abstract}
 
-%\begin{IEEEkeywords}
-%big data, data sciense
-%\end{IEEEkeywords}
+\begin{IEEEkeywords}
+Большие данные, распределённые вычисления
+\end{IEEEkeywords}
 
 \section{Введение}
 
